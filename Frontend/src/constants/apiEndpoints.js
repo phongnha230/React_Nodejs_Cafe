@@ -1,0 +1,68 @@
+export const API_ENDPOINTS = {
+  AUTH: {
+    LOGIN: '/auth/login',
+    REGISTER: '/auth/register',
+    LOGOUT: '/auth/logout',
+    REFRESH_TOKEN: '/auth/refresh-token',
+    FORGOT_PASSWORD: '/auth/forgot-password',
+    RESET_PASSWORD: '/auth/reset-password',
+  },
+  USERS: {
+    LOGIN: '/users/login',
+    REGISTER: '/users/register',
+    PROFILE: '/users/me',
+    LIST: '/users',
+    DETAIL: (id) => `/users/${id}`,
+    UPDATE: (id) => `/users/${id}`,
+    DELETE: (id) => `/users/${id}`,
+  },
+  PRODUCTS: {
+    LIST: '/products',
+    DETAIL: (id) => `/products/${id}`,
+    CREATE: '/products',
+    UPDATE: (id) => `/products/${id}`,
+    DELETE: (id) => `/products/${id}`,
+  },
+  ORDERS: {
+    LIST: '/orders',
+    DETAIL: (id) => `/orders/${id}`,
+    CREATE: '/orders',
+    UPDATE_STATUS: (id) => `/orders/${id}/status`,
+  },
+  PAYMENTS: {
+    LIST: '/payments',
+    DETAIL: (id) => `/payments/${id}`,
+    CREATE: '/payments',
+    UPDATE: (id) => `/payments/${id}`,
+    DELETE: (id) => `/payments/${id}`,
+  },
+  REVIEWS: {
+    LIST: '/reviews',
+    DETAIL: (id) => `/reviews/${id}`,
+    CREATE: '/reviews',
+    UPDATE: (id) => `/reviews/${id}`,
+    DELETE: (id) => `/reviews/${id}`,
+  },
+  MENU: {
+    LIST: '/menu-sections',
+    DETAIL: (id) => `/menu-sections/${id}`,
+    CREATE: '/menu-sections',
+    UPDATE: (id) => `/menu-sections/${id}`,
+    DELETE: (id) => `/menu-sections/${id}`,
+  },
+  NEWS: {
+    LIST: '/news',
+    DETAIL: (id) => `/news/${id}`,
+    CREATE: '/news',
+    UPDATE: (id) => `/news/${id}`,
+    DELETE: (id) => `/news/${id}`,
+  },
+  NOTIFICATIONS: {
+    LIST: '/notifications',
+    DETAIL: (id) => `/notifications/${id}`,
+    CREATE: '/notifications',
+    UPDATE: (id) => `/notifications/${id}`,
+    DELETE: (id) => `/notifications/${id}`,
+  },
+};
+

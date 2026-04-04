@@ -1,0 +1,5 @@
+-- Thêm các cột mới vào bảng users
+ALTER TABLE users ADD COLUMN IF NOT EXISTS name VARCHAR(255);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS login_count INT DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at DATETIME;
+
