@@ -23,7 +23,7 @@ services:
   # ========== Backend API ==========
   backend:
     build:
-      context: ./backend
+      context: .
       dockerfile: Dockerfile
     container_name: cafe_backend
     environment:
@@ -36,22 +36,6 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
-    networks:
-      - cafe_network
-    volumes:
-      - ./Frontend/src/assets:/app/src/assets:ro
-    restart: unless-stopped
-
-  # ========== Frontend ==========
-  frontend:
-    build:
-      context: ./Frontend
-      dockerfile: Dockerfile
-    container_name: cafe_frontend
-    ports:
-      - "80:80"
-    depends_on:
-      - backend
     networks:
       - cafe_network
     restart: unless-stopped
