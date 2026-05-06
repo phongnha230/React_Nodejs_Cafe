@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { storage } from '../utils/storage.js';
-import reviewServices from '../services/reviewServices.js';
+import reviewService from '../services/reviewService.js';
 
 const genId = () => (crypto?.randomUUID ? crypto.randomUUID() : `r_${Date.now()}_${Math.random().toString(36).slice(2)}`);
 
@@ -14,7 +14,7 @@ export const useReviewStore = create((set, get) => ({
     set({ loading: true, error: null });
     try {
       const params = productId ? { product_id: productId } : {};
-      const response = await reviewServices.getAll(params);
+      const response = await reviewService.getAll(params);
       const apiReviews = response.data || [];
       set({ reviews: apiReviews, loading: false });
       storage.set('reviews', apiReviews);
@@ -30,7 +30,7 @@ export const useReviewStore = create((set, get) => ({
   async add({ productId, userName, rating, comment }) {
     set({ loading: true, error: null });
     try {
-      const response = await reviewServices.create({
+      const response = await reviewService.create({
         product_id: productId,
         userName,
         rating: Number(rating) || 0,
@@ -52,7 +52,7 @@ export const useReviewStore = create((set, get) => ({
   async remove(id) {
     set({ loading: true, error: null });
     try {
-      await reviewServices.delete(id);
+      await reviewService.delete(id);
       const next = get().reviews.filter(r => r.id !== id);
       set({ reviews: next, loading: false });
       storage.set('reviews', next);
@@ -93,7 +93,7 @@ export const useReviewStore = create((set, get) => ({
   async updateReview(id, { rating, comment }) {
     set({ loading: true, error: null });
     try {
-      const response = await reviewServices.update(id, { rating, comment });
+      const response = await reviewService.update(id, { rating, comment });
       const updated = response.data;
       const next = get().reviews.map(r => r.id === id ? updated : r);
       set({ reviews: next, loading: false });

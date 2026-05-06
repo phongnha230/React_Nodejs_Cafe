@@ -1,6 +1,6 @@
 import api from "../utils/api";
 import { API_ENDPOINTS } from "../constants/apiEndpoints";
-const menuServices = {
+const menuService = {
 
   // Lấy danh sách menu
 
@@ -18,4 +18,4 @@ const menuServices = {
   // Xóa menu theo ID
   delete: (id) => api.delete(API_ENDPOINTS.MENU.DELETE(id)),
 }
-export default menuServices;
+export default menuService;

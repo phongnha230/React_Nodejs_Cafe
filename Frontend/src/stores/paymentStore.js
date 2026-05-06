@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { storage } from '../utils/storage.js';
-import paymentServices from '../services/paymentServices.js';
+import paymentService from '../services/paymentService.js';
 
 export const usePaymentStore = create((set, get) => ({
   payments: [],
@@ -11,7 +11,7 @@ export const usePaymentStore = create((set, get) => ({
   async loadFromAPI(params = {}) {
     set({ loading: true, error: null });
     try {
-      const response = await paymentServices.getAll(params);
+      const response = await paymentService.getAll(params);
       const apiPayments = response.data || [];
 
       // Luôn dùng dữ liệu từ API (kể cả khi rỗng)
@@ -34,7 +34,7 @@ export const usePaymentStore = create((set, get) => ({
   async getById(id) {
     set({ loading: true, error: null });
     try {
-      const response = await paymentServices.getById(id);
+      const response = await paymentService.getById(id);
       const payment = response.data;
       set({ loading: false });
       return payment;
@@ -49,7 +49,7 @@ export const usePaymentStore = create((set, get) => ({
   async add(paymentData) {
     set({ loading: true, error: null });
     try {
-      const response = await paymentServices.create(paymentData);
+      const response = await paymentService.create(paymentData);
       const newPayment = response.data;
       
       const next = [newPayment, ...get().payments];
@@ -67,7 +67,7 @@ export const usePaymentStore = create((set, get) => ({
   async update(id, data) {
     set({ loading: true, error: null });
     try {
-      const response = await paymentServices.update(id, data);
+      const response = await paymentService.update(id, data);
       const updatedPayment = response.data;
       
       const next = get().payments.map(p =>
@@ -92,7 +92,7 @@ export const usePaymentStore = create((set, get) => ({
   async remove(id) {
     set({ loading: true, error: null });
     try {
-      await paymentServices.delete(id);
+      await paymentService.delete(id);
       const next = get().payments.filter(p => p.id !== id);
       set({ payments: next, loading: false });
       storage.set('payments', next);

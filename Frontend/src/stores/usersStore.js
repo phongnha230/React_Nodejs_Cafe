@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { storage } from '../utils/storage.js';
-import userServices from '../services/usersServices.js';
+import userService from '../services/userService.js';
 
 const genId = () => (crypto?.randomUUID ? crypto.randomUUID() : `u_${Date.now()}_${Math.random().toString(36).slice(2)}`);
 
@@ -13,7 +13,7 @@ export const useUsersStore = create((set, get) => ({
   async loadFromAPI(params = {}) {
     set({ loading: true, error: null });
     try {
-      const response = await userServices.getAll(params);
+      const response = await userService.getAll(params);
       const apiUsers = response.data || [];
       
       // Format data
@@ -54,7 +54,7 @@ export const useUsersStore = create((set, get) => ({
   async getById(id) {
     set({ loading: true, error: null });
     try {
-      const response = await userServices.getById(id);
+      const response = await userService.getById(id);
       const user = response.data;
       set({ loading: false });
       return user;
@@ -90,7 +90,7 @@ export const useUsersStore = create((set, get) => ({
   async update(id, data) {
     set({ loading: true, error: null });
     try {
-      const response = await userServices.update(id, data);
+      const response = await userService.update(id, data);
       const updatedUser = response.data;
       
       const next = get().users.map(u => 
@@ -110,7 +110,7 @@ export const useUsersStore = create((set, get) => ({
   async remove(id) {
     set({ loading: true, error: null });
     try {
-      await userServices.delete(id);
+      await userService.delete(id);
       const next = get().users.filter(u => u.id !== id);
       set({ users: next, loading: false });
       storage.set('users', next);

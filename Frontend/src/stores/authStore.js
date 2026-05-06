@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { storage } from '../utils/storage.js';
 import { useCartStore } from './cartStore.js';
 import { ROLES } from '../constants/roles';
-import authServices from '../services/authServices.js';
+import authService from '../services/authService.js';
 
 
 const saved = storage.get('auth_state', { role: ROLES.GUEST, customerName: null, token: null });
@@ -26,7 +26,7 @@ export const useAuthStore = create((set, get) => ({
   async login(credentials) {
     set({ loading: true, error: null });
     try {
-      const response = await authServices.login(credentials);
+      const response = await authService.login(credentials);
 
       // Backend trả về: { token, user: { id, username, email, role } }
       const { token, user } = response.data;
@@ -48,7 +48,7 @@ export const useAuthStore = create((set, get) => ({
   async register(userData) {
     set({ loading: true, error: null });
     try {
-      const response = await authServices.register(userData);
+      const response = await authService.register(userData);
       set({ loading: false });
       return response.data;
     } catch (error) {
@@ -62,7 +62,7 @@ export const useAuthStore = create((set, get) => ({
   async logout() {
     set({ loading: true, error: null });
     try {
-      await authServices.logout();
+      await authService.logout();
       localStorage.removeItem('token');
       set({
         role: ROLES.GUEST,
@@ -91,7 +91,7 @@ export const useAuthStore = create((set, get) => ({
   async forgotPassword(email) {
     set({ loading: true, error: null });
     try {
-      const response = await authServices.forgotPassword(email);
+      const response = await authService.forgotPassword(email);
       set({ loading: false });
       return response.data;
     } catch (error) {
@@ -105,7 +105,7 @@ export const useAuthStore = create((set, get) => ({
   async resetPassword(token, data) {
     set({ loading: true, error: null });
     try {
-      const response = await authServices.resetPassword(token, data);
+      const response = await authService.resetPassword(token, data);
       set({ loading: false });
       return response.data;
     } catch (error) {

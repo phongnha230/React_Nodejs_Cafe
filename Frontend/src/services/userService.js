@@ -1,6 +1,6 @@
 import api from "../utils/api";
 import { API_ENDPOINTS } from "../constants/apiEndpoints";
-const userServices = {
+const userService = {
   login: (data) => api.post(API_ENDPOINTS.USERS.LOGIN, data),
   register: (data) => api.post(API_ENDPOINTS.USERS.REGISTER, data),
   getProfile: () => api.get(API_ENDPOINTS.USERS.PROFILE),
@@ -11,4 +11,4 @@ const userServices = {
   update: (id, data) => api.put(API_ENDPOINTS.USERS.UPDATE(id), data),
   delete: (id) => api.delete(API_ENDPOINTS.USERS.DELETE(id)), 
 }
-export default userServices;
+export default userService;

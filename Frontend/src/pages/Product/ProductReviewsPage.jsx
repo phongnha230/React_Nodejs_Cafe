@@ -1,4 +1,4 @@
-ï»¿import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useProductStore } from '../../stores/productStore.js'
 import { useReviewStore } from '../../stores/reviewStore.js'
@@ -38,9 +38,9 @@ export function ProductReviews() {
           marginBottom: 12,
         }}
       >
-        <h2 style={{ margin: 0 }}>ÄÃ¡nh giÃ¡ cho: {product?.name || id}</h2>
+        <h2 style={{ margin: 0 }}>Ğánh giá cho: {product?.name || id}</h2>
         <button className="btn secondary" onClick={() => navigate(-1)}>
-          Quay láº¡i
+          Quay l?i
         </button>
       </div>
 
@@ -53,15 +53,15 @@ export function ProductReviews() {
         }}
       >
         <span style={{ color: '#f59e0b', fontSize: 18 }}>
-          {'â˜…'.repeat(Math.round(avg))}
-          {'â˜†'.repeat(5 - Math.round(avg))}
+          {'?'.repeat(Math.round(avg))}
+          {'?'.repeat(5 - Math.round(avg))}
         </span>
-        <span className="badge">{count} Ä‘Ã¡nh giÃ¡</span>
+        <span className="badge">{count} dánh giá</span>
       </div>
 
       {reviews.length === 0 ? (
         <div className="card" style={{ padding: 16 }}>
-          ChÆ°a cÃ³ Ä‘Ã¡nh giÃ¡ nÃ o.
+          Chua có dánh giá nào.
         </div>
       ) : (
         <div className="order-items">
@@ -73,18 +73,18 @@ export function ProductReviews() {
             >
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <strong>{r.User?.username || r.user?.username || r.userName || 'áº¨n danh'}</strong>
+                  <strong>{r.User?.username || r.user?.username || r.userName || '?n danh'}</strong>
                   <span className="muted">
                     {new Date(r.created_at || r.createdAt).toLocaleString('vi-VN')}
                   </span>
                 </div>
                 <div style={{ color: '#f59e0b', margin: '4px 0' }}>
-                  {'â˜…'.repeat(r.rating)}
-                  {'â˜†'.repeat(5 - r.rating)}
+                  {'?'.repeat(r.rating)}
+                  {'?'.repeat(5 - r.rating)}
                 </div>
                 <div>
                   {r.comment || (
-                    <span className="muted">(KhÃ´ng cÃ³ ná»™i dung)</span>
+                    <span className="muted">(Không có n?i dung)</span>
                   )}
                 </div>
               </div>
@@ -92,14 +92,14 @@ export function ProductReviews() {
                 <button
                   className="btn secondary"
                   onClick={async () => {
-                    if (confirm('XÃ³a Ä‘Ã¡nh giÃ¡ nÃ y?')) {
+                    if (confirm('Xóa dánh giá này?')) {
                       await removeReview(r.id)
                       // Reload reviews to update UI
                       await loadFromAPI(id)
                     }
                   }}
                 >
-                  XÃ³a
+                  Xóa
                 </button>
               )}
             </div>

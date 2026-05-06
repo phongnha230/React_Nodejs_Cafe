@@ -1,48 +1,54 @@
 const logger = require('../config/logger');
+const { error } = require('../utils/responseFormatter');
 
+/**
+ * Global Error Handler Middleware
+ */
 module.exports = (err, req, res, next) => {
-  // Log error với Winston
-  logger.error('Error occurred', {
-    error: err.message,
+  err.statusCode = err.statusCode || 500;
+  err.status = err.status || 'error';
+
+  // Log error details
+  logger.error(`${err.statusCode} - ${err.message} - ${req.originalUrl} - ${req.method} - ${req.ip}`, {
     stack: err.stack,
-    url: req.url,
-    method: req.method,
-    ip: req.ip || req.connection.remoteAddress,
-    userAgent: req.get('User-Agent'),
-    timestamp: new Date().toISOString()
+    details: err.errors || null
   });
 
-  const status = err.status || 500;
-  const payload = {
-    message: err.message || 'Internal Server Error',
-    timestamp: new Date().toISOString()
-  };
-
-  // Chỉ hiển thị stack trace trong development
-  if (process.env.NODE_ENV !== 'production') {
-    payload.stack = err.stack;
-    payload.details = err;
-  }
-
-  // Nếu là Sequelize error, xử lý đặc biệt
+  // Handle specific Sequelize errors
   if (err.name === 'SequelizeValidationError') {
-    payload.message = 'Validation Error';
-    payload.errors = err.errors.map(e => ({
+    err.statusCode = 400;
+    err.message = 'Validation Error';
+    err.errors = err.errors.map(e => ({
       field: e.path,
       message: e.message
     }));
   } else if (err.name === 'SequelizeUniqueConstraintError') {
-    payload.message = 'Duplicate Entry';
-    payload.errors = err.errors.map(e => ({
+    err.statusCode = 400;
+    err.message = 'Duplicate Entry';
+    err.errors = err.errors.map(e => ({
       field: e.path,
       message: `${e.path} already exists`
     }));
   }
 
-  if (!res.headersSent) {
-    res.status(status).json(payload);
+  // Development vs Production response
+  if (process.env.NODE_ENV === 'development') {
+    res.status(err.statusCode).json({
+      success: false,
+      status: err.status,
+      message: err.message,
+      stack: err.stack,
+      errors: err.errors,
+      error: err
+    });
   } else {
-    next(err);
+    // Production response
+    // Operational, trusted error: send message to client
+    if (err.isOperational) {
+      res.status(err.statusCode).json(error(err.message, err.statusCode, err.errors));
+    } else {
+      // Programming or other unknown error: don't leak error details
+      res.status(500).json(error('Something went wrong!', 500));
+    }
   }
 };
-

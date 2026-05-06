@@ -1,6 +1,6 @@
 import api from "../utils/api";
 import { API_ENDPOINTS } from "../constants/apiEndpoints";
-const reviewServices = {
+const reviewService = {
   // Get all reviews with optional query parameters
   getAll: (params) => api.get(API_ENDPOINTS.REVIEWS.LIST, { params }),
  // Get a review by ID
@@ -12,4 +12,4 @@ const reviewServices = {
   // Delete a review by ID by admin
   delete: (id) => api.delete(API_ENDPOINTS.REVIEWS.DELETE(id)),
 }
-export default reviewServices
+export default reviewService

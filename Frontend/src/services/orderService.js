@@ -1,6 +1,6 @@
 import api from "../utils/api";
 import { API_ENDPOINTS } from "../constants/apiEndpoints";
-const orderServices = { 
+const orderService = { 
   //get all orders with optional query parameters
   getAll: (params) => api.get(API_ENDPOINTS.ORDERS.LIST, { params }),
 
@@ -14,4 +14,4 @@ const orderServices = {
   updateStatus: (id, data) => api.put(API_ENDPOINTS.ORDERS.UPDATE_STATUS(id), data),
 };
 
-export default orderServices;
+export default orderService;

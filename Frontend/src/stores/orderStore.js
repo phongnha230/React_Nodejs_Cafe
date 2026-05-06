@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { storage } from '../utils/storage.js';
-import orderServices from '../services/orderServices.js';
+import orderService from '../services/orderService.js';
 
 const initial = storage.get('orders', []);
 
@@ -13,7 +13,7 @@ export const useOrderStore = create((set, get) => ({
   async loadFromAPI() {
     set({ loading: true, error: null });
     try {
-      const response = await orderServices.getAll();
+      const response = await orderService.getAll();
       const payload = response.data;
       const apiOrders = Array.isArray(payload) ? payload : (payload?.data || []);
 
@@ -55,7 +55,7 @@ export const useOrderStore = create((set, get) => ({
     set({ loading: true, error: null });
     try {
       // Call backend API to create order
-      const response = await orderServices.create({
+      const response = await orderService.create({
         // Backend expects an integer table_number. Extract number from address like "Bàn số 1".
         table_number: (() => {
           const n = parseInt(String(order.address || '').replace(/\D+/g, ''));
@@ -98,7 +98,7 @@ export const useOrderStore = create((set, get) => ({
   async updateStatus(id, status) {
     try {
       // Update backend first
-      await orderServices.updateStatus(id, { status });
+      await orderService.updateStatus(id, { status });
 
       // Then update local state
       const next = get().orders.map(o => o.id === id ? { ...o, status } : o);

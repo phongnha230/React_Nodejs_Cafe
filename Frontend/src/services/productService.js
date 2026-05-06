@@ -1,6 +1,6 @@
 import api from "../utils/api";
 import { API_ENDPOINTS } from "../constants/apiEndpoints";
-const productServices = {
+const productService = {
   // Get all products with optional query parameters
   getAll: (params) => api.get(API_ENDPOINTS.PRODUCTS.LIST, { params }),
   // Get a product by ID
@@ -12,4 +12,4 @@ const productServices = {
   // Delete a product by ID by admin
   delete: (id) => api.delete(API_ENDPOINTS.PRODUCTS.DELETE(id)),
 };
-export default productServices;
+export default productService;

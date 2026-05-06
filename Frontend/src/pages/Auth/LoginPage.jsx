@@ -1,7 +1,7 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore.js';
-import userServices from '../../services/usersServices.js';
+import userService from '../../services/userService.js';
 import { ROLES } from '../../constants/roles';
 import { ROUTES } from '../../config/routes';
 import { MESSAGES } from '../../constants/messages';
@@ -19,32 +19,32 @@ export function LoginPage() {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      alert('Vui lòng nhập đầy đủ thông tin')
+      alert('Vui l�ng nh?p d?y d? th�ng tin')
       return
     }
 
     try {
       setLoading(true)
-      const response = await userServices.login({ email, password })
+      const response = await userService.login({ email, password })
 
       if (response.data && response.data.token) {
         const { token, user } = response.data
 
-        // Lưu token và thông tin user
+        // Luu token v� th�ng tin user
         setAuthData({
           token,
           role: user.role,
           username: user.username || user.email.split('@')[0],
         })
 
-        // Điều hướng theo role
+        // �i?u hu?ng theo role
         if (user.role === 'admin') {
           alert(
-            'Chào mừng chủ quán! Bạn có thể xem doanh thu và quản lý đơn hàng.'
+            'Ch�o m?ng ch? qu�n! B?n c� th? xem doanh thu v� qu?n l� don h�ng.'
           )
           navigate('/admin')
         } else {
-          alert('Đăng nhập thành công! Chào mừng bạn đến với jokopi.')
+          alert('�ang nh?p th�nh c�ng! Ch�o m?ng b?n d?n v?i jokopi.')
           navigate('/')
         }
       }
@@ -52,14 +52,14 @@ export function LoginPage() {
       console.error('Login error:', error)
       alert(
         error.response?.data?.message ||
-        'Đăng nhập thất bại. Vui lòng kiểm tra email và mật khẩu.'
+        '�ang nh?p th?t b?i. Vui l�ng ki?m tra email v� m?t kh?u.'
       )
     } finally {
       setLoading(false)
     }
   }
 
-  // Kiểm tra password có hợp lệ không
+  // Ki?m tra password c� h?p l? kh�ng
   const validatePassword = (pwd) => {
     const hasMinLength = pwd.length >= 6
     const hasLowerCase = /[a-z]/.test(pwd)
@@ -68,7 +68,7 @@ export function LoginPage() {
     return hasMinLength && hasLowerCase && hasUpperCase && hasNumber
   }
 
-  // Reset tất cả các trường khi chuyển đổi giữa đăng nhập và đăng ký
+  // Reset t?t c? c�c tru?ng khi chuy?n d?i gi?a dang nh?p v� dang k�
   const resetForm = () => {
     setEmail('')
     setPassword('')
@@ -79,25 +79,25 @@ export function LoginPage() {
 
   const handleRegister = async () => {
     if (!username || !email || !password || !confirmPassword) {
-      alert('Vui lòng nhập đầy đủ thông tin')
+      alert('Vui l�ng nh?p d?y d? th�ng tin')
       return
     }
 
     if (!validatePassword(password)) {
       alert(
-        'Password phải có:\n• Tối thiểu 6 ký tự\n• Ít nhất 1 chữ thường (a-z)\n• Ít nhất 1 chữ HOA (A-Z)\n• Ít nhất 1 số (0-9)\n\nVí dụ: Password123, Cafe2024'
+        'Password ph?i c�:\n� T?i thi?u 6 k� t?\n� �t nh?t 1 ch? thu?ng (a-z)\n� �t nh?t 1 ch? HOA (A-Z)\n� �t nh?t 1 s? (0-9)\n\nV� d?: Password123, Cafe2024'
       )
       return
     }
 
     if (password !== confirmPassword) {
-      alert('Mật khẩu xác nhận không khớp')
+      alert('M?t kh?u x�c nh?n kh�ng kh?p')
       return
     }
 
     try {
       setLoading(true)
-      const response = await userServices.register({
+      const response = await userService.register({
         username,
         email,
         password,
@@ -105,7 +105,7 @@ export function LoginPage() {
       });
 
       if (response.data) {
-        alert('Đăng ký thành công! Vui lòng đăng nhập.');
+        alert('�ang k� th�nh c�ng! Vui l�ng dang nh?p.');
         resetForm();
         setIsRegister(false);
       }
@@ -113,7 +113,7 @@ export function LoginPage() {
       console.error('Register error:', error)
       alert(
         error.response?.data?.message ||
-        'Đăng ký thất bại. Email có thể đã được sử dụng.'
+        '�ang k� th?t b?i. Email c� th? d� du?c s? d?ng.'
       )
     } finally {
       setLoading(false)

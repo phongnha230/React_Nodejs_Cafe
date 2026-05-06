@@ -6,8 +6,8 @@ import { useProductStore } from '../../stores/productStore.js'
 import { useActivitiesStore } from '../../stores/activitiesStore.js'
 import { usePaymentStore } from '../../stores/paymentStore.js'
 import { Sidebar } from '../../components/layout/Sidebar.jsx'
-import paymentServices from '../../services/paymentServices.js'
-import userServices from '../../services/usersServices.js'
+import paymentService from '../../services/paymentService.js'
+import userService from '../../services/userService.js'
 export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
   const orders = useOrderStore((s) => s.orders)
   const loadOrders = useOrderStore((s) => s.loadFromAPI)
@@ -95,7 +95,7 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
   const loadPayments = async () => {
     try {
       setLoadingPayments(true)
-      const response = await paymentServices.getAll()
+      const response = await paymentService.getAll()
       if (response.data) {
         setPayments(response.data)
         // Xóa localStorage nếu API trả về mảng rỗng (backend đã xóa hết)
@@ -429,7 +429,7 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
                 }
 
                 try {
-                  await userServices.register({
+                  await userService.register({
                     username,
                     email,
                     password,
@@ -1332,7 +1332,7 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
                                 }}
                                 onClick={async () => {
                                   try {
-                                    await paymentServices.update(payment.id, {
+                                    await paymentService.update(payment.id, {
                                       status: 'success',
                                     })
                                     updatePaymentStatus(payment.id, 'success')
@@ -1356,7 +1356,7 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
                                 }}
                                 onClick={async () => {
                                   try {
-                                    await paymentServices.update(payment.id, {
+                                    await paymentService.update(payment.id, {
                                       status: 'failed',
                                     })
                                     updatePaymentStatus(payment.id, 'failed')

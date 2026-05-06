@@ -1,6 +1,6 @@
 import api from "../utils/api";
 import { API_ENDPOINTS } from "../constants/apiEndpoints";
-const paymentServices = {
+const paymentService = {
   //lấy danh sách thanh toán
   getAll: (params) => api.get(API_ENDPOINTS.PAYMENTS.LIST, { params }),
 
@@ -17,4 +17,4 @@ const paymentServices = {
   delete: (id) => api.delete(API_ENDPOINTS.PAYMENTS.DELETE(id)),
 };
 
-export default paymentServices;
+export default paymentService;

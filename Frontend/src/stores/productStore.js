@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { storage } from '../utils/storage.js';
 import { products as seed } from '../data/menu.js';
-import productServices from '../services/productServices.js';
+import productService from '../services/productService.js';
 
 const genId = () => (crypto?.randomUUID ? crypto.randomUUID() : `p_${Date.now()}_${Math.random().toString(36).slice(2)}`);
 
@@ -21,7 +21,7 @@ export const useProductStore = create((set, get) => ({
   async loadFromAPI() {
     set({ loading: true, error: null });
     try {
-      const response = await productServices.getAll();
+      const response = await productService.getAll();
       const apiProducts = response.data || [];
 
       // Nếu API có dữ liệu, dùng API; nếu không, dùng localStorage
@@ -52,7 +52,7 @@ export const useProductStore = create((set, get) => ({
   async add(product) {
     set({ loading: true, error: null });
     try {
-      const response = await productServices.create({
+      const response = await productService.create({
         name: product.name,
         price: product.price,
         category: product.category,
@@ -85,7 +85,7 @@ export const useProductStore = create((set, get) => ({
   async update(id, patch) {
     set({ loading: true, error: null });
     try {
-      await productServices.update(id, {
+      await productService.update(id, {
         name: patch.name,
         price: patch.price,
         category: patch.category,
@@ -104,7 +104,7 @@ export const useProductStore = create((set, get) => ({
   async remove(id) {
     set({ loading: true, error: null });
     try {
-      await productServices.delete(id);
+      await productService.delete(id);
 
       const next = get().products.filter(p => p.id !== id);
       set({ products: next, loading: false });

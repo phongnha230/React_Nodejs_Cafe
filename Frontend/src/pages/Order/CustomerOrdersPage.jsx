@@ -1,11 +1,11 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useOrderStore } from '../../stores/orderStore.js';
 import { useAuth } from '../../hooks/useAuth.js';
 import { useNotifyStore } from '../../stores/notifyStore.js';
 import { useProductStore } from '../../stores/productStore.js';
 import { useReviewStore } from '../../stores/reviewStore.js';
 import { RateProductModal } from '../../components/common/RateProductModal.jsx';
-import paymentServices from '../../services/paymentServices.js';
+import paymentService from '../../services/paymentService.js';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 export function CustomerOrders() {
@@ -51,12 +51,12 @@ export function CustomerOrders() {
         if (status === 'ready') {
           toast.show({
             type: 'info',
-            message: 'Đơn của bạn đã sẵn sàng! Vui lòng tới nhận.',
+            message: '�on c?a b?n d� s?n s�ng! Vui l�ng t?i nh?n.',
           })
         } else if (status === 'delivered') {
           toast.show({
             type: 'success',
-            message: 'Đơn của bạn đã hoàn tất. Chúc bạn ngon miệng!',
+            message: '�on c?a b?n d� ho�n t?t. Ch�c b?n ngon mi?ng!',
           })
         }
       }
@@ -68,26 +68,26 @@ export function CustomerOrders() {
 
   return (
     <div className="container">
-      <h2>Đơn của tôi</h2>
+      <h2>�on c?a t�i</h2>
       {myOrders.length === 0 ? (
-        <div className="empty-cart">Bạn chưa có đơn hàng nào.</div>
+        <div className="empty-cart">B?n chua c� don h�ng n�o.</div>
       ) : (
         <table className="table">
           <thead>
             <tr>
-              <th>Thời gian</th>
-              <th>Bàn</th>
-              <th>Phương thức</th>
-              <th>Trạng thái</th>
-              <th>Tổng tiền</th>
-              <th>Hành động</th>
+              <th>Th?i gian</th>
+              <th>B�n</th>
+              <th>Phuong th?c</th>
+              <th>Tr?ng th�i</th>
+              <th>T?ng ti?n</th>
+              <th>H�nh d?ng</th>
             </tr>
           </thead>
           <tbody>
             {myOrders.map((o) => (
               <tr key={o.id}>
                 <td>{new Date(o.createdAt).toLocaleString('vi-VN')}</td>
-                <td>{o.address || 'Không có'}</td>
+                <td>{o.address || 'Kh�ng c�'}</td>
                 <td>
                   {(() => {
                     // Get payment method from payments array
@@ -95,15 +95,15 @@ export function CustomerOrders() {
                     const method = payment?.method || o.paymentMethod || 'cash';
                     if (method === 'vnpay') return 'VNPay';
                     if (method === 'momo') return 'MoMo';
-                    return 'Tiền mặt';
+                    return 'Ti?n m?t';
                   })()}
                 </td>
                 <td>
                   <span className={`status-badge ${o.status}`}>
-                    {o.status === 'delivered' || o.status === 'paid' ? 'Hoàn tất' : 'Đang pha'}
+                    {o.status === 'delivered' || o.status === 'paid' ? 'Ho�n t?t' : '�ang pha'}
                   </span>
                 </td>
-                <td>{(o.total ?? o.total_amount ?? 0).toLocaleString('vi-VN')}đ</td>
+                <td>{(o.total ?? o.total_amount ?? 0).toLocaleString('vi-VN')}d</td>
                 <td>
                   {/* No action buttons for now */}
                 </td>
@@ -119,7 +119,7 @@ export function CustomerOrders() {
           .filter((o) => o.status === 'delivered' || o.status === 'paid')
           .flatMap((o) => o.items)
           .filter((it) => {
-            const existingReview = getReview(it.productId, customerName || 'ẩn danh');
+            const existingReview = getReview(it.productId, customerName || '?n danh');
             return !existingReview; // Only keep items that haven't been reviewed
           });
 
@@ -135,7 +135,7 @@ export function CustomerOrders() {
 
         return (
           <div className="dashboard-section" style={{ marginTop: 16 }}>
-            <h3>Đánh giá món đã mua</h3>
+            <h3>��nh gi� m�n d� mua</h3>
             <div className="order-items">
               {uniqueItems.map((it, idx) => {
                 const p = products.find((pr) => pr.id === it.productId);
@@ -157,7 +157,7 @@ export function CustomerOrders() {
                           setOpenRate(true);
                         }}
                       >
-                        Đánh giá
+                        ��nh gi�
                       </button>
                     </div>
                   </div>
@@ -179,7 +179,7 @@ export function CustomerOrders() {
 
         return (
           <div className="dashboard-section" style={{ marginTop: 24 }}>
-            <h3>Đánh giá của bạn</h3>
+            <h3>��nh gi� c?a b?n</h3>
             <div className="order-items">
               {myReviews.map((review) => {
                 const p = products.find((pr) => pr.id === review.product_id || pr.id === review.productId);
@@ -193,7 +193,7 @@ export function CustomerOrders() {
                         <div>
                           <div className="order-item-name" style={{ fontWeight: 600 }}>{p.name}</div>
                           <div style={{ color: '#f59e0b', fontSize: 14 }}>
-                            {'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}
+                            {'?'.repeat(review.rating)}{'?'.repeat(5 - review.rating)}
                           </div>
                         </div>
                       </div>
@@ -209,7 +209,7 @@ export function CustomerOrders() {
                             fontWeight: 600
                           }}
                         >
-                          ✓ Đã đánh giá
+                          ? �� d�nh gi�
                         </span>
                       </div>
                     </div>
@@ -228,7 +228,7 @@ export function CustomerOrders() {
                           setOpenRate(true)
                         }}
                       >
-                        Chỉnh sửa
+                        Ch?nh s?a
                       </button>
                     </div>
                   </div>

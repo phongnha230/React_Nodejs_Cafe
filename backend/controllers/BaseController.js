@@ -1,39 +1,40 @@
 const logger = require('../config/logger');
+const AppError = require('../utils/AppError');
+const { success, paginated } = require('../utils/responseFormatter');
 
+/**
+ * Base Controller
+ * Provides common CRUD operations for models
+ */
 class BaseController {
   constructor(model, modelName) {
     this.model = model;
     this.modelName = modelName;
   }
 
-  // Tạo mới record
-  async create(req, res) {
+  /**
+   * Create new record
+   */
+  async create(req, res, next) {
     try {
       const data = req.body;
       const item = await this.model.create(data);
 
       logger.info(`${this.modelName} created`, {
         id: item.id,
-        userId: req.user?.id,
-        timestamp: new Date().toISOString()
+        userId: req.user?.id
       });
 
-      res.status(201).json(item);
+      res.status(201).json(success(item, `${this.modelName} created successfully`));
     } catch (err) {
-      logger.error(`Error creating ${this.modelName}`, {
-        error: err.message,
-        userId: req.user?.id,
-        timestamp: new Date().toISOString()
-      });
-      res.status(500).json({
-        message: `Create ${this.modelName} error`,
-        error: err.message
-      });
+      next(err);
     }
   }
 
-  // Lấy danh sách với pagination
-  async list(req, res) {
+  /**
+   * List records with pagination
+   */
+  async list(req, res, next) {
     try {
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 10;
@@ -45,67 +46,46 @@ class BaseController {
         order: [['id', 'DESC']]
       });
 
-      res.json({
-        data: rows,
-        pagination: {
-          page,
-          limit,
-          total: count,
-          pages: Math.ceil(count / limit)
-        }
-      });
+      res.json(paginated(rows, page, limit, count));
     } catch (err) {
-      logger.error(`Error listing ${this.modelName}`, {
-        error: err.message,
-        userId: req.user?.id,
-        timestamp: new Date().toISOString()
-      });
-      res.status(500).json({
-        message: `List ${this.modelName} error`,
-        error: err.message
-      });
+      next(err);
     }
   }
 
-  // Lấy theo ID
-  async get(req, res) {
+  /**
+   * Get record by ID
+   */
+  async get(req, res, next) {
     try {
       const id = parseInt(req.params.id);
       if (!Number.isInteger(id)) {
-        return res.status(400).json({ message: 'Invalid ID' });
+        throw new AppError('Invalid ID', 400);
       }
 
       const item = await this.model.findByPk(id);
       if (!item) {
-        return res.status(404).json({ message: `${this.modelName} not found` });
+        throw new AppError(`${this.modelName} not found`, 404);
       }
 
-      res.json(item);
+      res.json(success(item));
     } catch (err) {
-      logger.error(`Error getting ${this.modelName}`, {
-        error: err.message,
-        id: req.params.id,
-        userId: req.user?.id,
-        timestamp: new Date().toISOString()
-      });
-      res.status(500).json({
-        message: `Get ${this.modelName} error`,
-        error: err.message
-      });
+      next(err);
     }
   }
 
-  // Cập nhật
-  async update(req, res) {
+  /**
+   * Update record
+   */
+  async update(req, res, next) {
     try {
       const id = parseInt(req.params.id);
       if (!Number.isInteger(id)) {
-        return res.status(400).json({ message: 'Invalid ID' });
+        throw new AppError('Invalid ID', 400);
       }
 
       const item = await this.model.findByPk(id);
       if (!item) {
-        return res.status(404).json({ message: `${this.modelName} not found` });
+        throw new AppError(`${this.modelName} not found`, 404);
       }
 
       const data = req.body;
@@ -113,58 +93,40 @@ class BaseController {
 
       logger.info(`${this.modelName} updated`, {
         id: item.id,
-        userId: req.user?.id,
-        timestamp: new Date().toISOString()
+        userId: req.user?.id
       });
 
-      res.json(item);
+      res.json(success(item, `${this.modelName} updated successfully`));
     } catch (err) {
-      logger.error(`Error updating ${this.modelName}`, {
-        error: err.message,
-        id: req.params.id,
-        userId: req.user?.id,
-        timestamp: new Date().toISOString()
-      });
-      res.status(500).json({
-        message: `Update ${this.modelName} error`,
-        error: err.message
-      });
+      next(err);
     }
   }
 
-  // Xóa
-  async remove(req, res) {
+  /**
+   * Remove record
+   */
+  async remove(req, res, next) {
     try {
       const id = parseInt(req.params.id);
       if (!Number.isInteger(id)) {
-        return res.status(400).json({ message: 'Invalid ID' });
+        throw new AppError('Invalid ID', 400);
       }
 
       const item = await this.model.findByPk(id);
       if (!item) {
-        return res.status(404).json({ message: `${this.modelName} not found` });
+        throw new AppError(`${this.modelName} not found`, 404);
       }
 
       await item.destroy();
 
       logger.info(`${this.modelName} deleted`, {
         id: item.id,
-        userId: req.user?.id,
-        timestamp: new Date().toISOString()
+        userId: req.user?.id
       });
 
-      res.json({ success: true });
+      res.json(success(null, `${this.modelName} deleted successfully`));
     } catch (err) {
-      logger.error(`Error deleting ${this.modelName}`, {
-        error: err.message,
-        id: req.params.id,
-        userId: req.user?.id,
-        timestamp: new Date().toISOString()
-      });
-      res.status(500).json({
-        message: `Delete ${this.modelName} error`,
-        error: err.message
-      });
+      next(err);
     }
   }
 }

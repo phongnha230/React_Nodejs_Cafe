@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Banner } from '../../components/common/Banner.jsx'
 import { FilterBar } from '../../components/common/FilterBar.jsx'
 import { ProductCard } from '../../components/common/ProductCard.jsx'
@@ -21,27 +21,27 @@ function AboutSection() {
         <div className="about-layout">
           <div className="about-features">
             <article className="about-card">
-              <div className="about-card-icon">🌿</div>
-              <h3 className="about-card-title">Không gian yên tĩnh</h3>
+              <div className="about-card-icon">??</div>
+              <h3 className="about-card-title">Kh�ng gian y�n tinh</h3>
               <p className="about-card-text">
-                Không chỉ là nơi để thưởng thức cà phê, mà còn là một không gian
-                yên tĩnh để bạn thoát khỏi cuộc sống bận rộn.
+                Kh�ng ch? l� noi d? thu?ng th?c c� ph�, m� c�n l� m?t kh�ng gian
+                y�n tinh d? b?n tho�t kh?i cu?c s?ng b?n r?n.
               </p>
             </article>
             <article className="about-card">
-              <div className="about-card-icon">☕</div>
-              <h3 className="about-card-title">Menu đa dạng</h3>
+              <div className="about-card-icon">?</div>
+              <h3 className="about-card-title">Menu da d?ng</h3>
               <p className="about-card-text">
-                Menu đa dạng từ cà phê rang nguyên chất, trà thanh mát đến các
-                thức uống độc quyền được chế biến cẩn thận.
+                Menu da d?ng t? c� ph� rang nguy�n ch?t, tr� thanh m�t d?n c�c
+                th?c u?ng d?c quy?n du?c ch? bi?n c?n th?n.
               </p>
             </article>
             <article className="about-card">
-              <div className="about-card-icon">✨</div>
-              <h3 className="about-card-title">Trải nghiệm đặc biệt</h3>
+              <div className="about-card-icon">?</div>
+              <h3 className="about-card-title">Tr?i nghi?m d?c bi?t</h3>
               <p className="about-card-text">
-                Với không gian ấm cúng, trang trí tỷ mỷ và tinh tế, chúng tôi
-                mang đến cho bạn trải nghiệm thoải mái và "chill".
+                V?i kh�ng gian ?m c�ng, trang tr� t? m? v� tinh t?, ch�ng t�i
+                mang d?n cho b?n tr?i nghi?m tho?i m�i v� "chill".
               </p>
             </article>
           </div>
@@ -49,12 +49,12 @@ function AboutSection() {
             <img
               className="about-showcase-img"
               src="/src/assets/space_coffee.jpg"
-              alt="Không gian quán cafe jokopi ấm cúng và hiện đại"
+              alt="Kh�ng gian qu�n cafe jokopi ?m c�ng v� hi?n d?i"
             />
             <img
               className="about-showcase-img"
               src="https://images.unsplash.com/photo-1445116572660-236099ec97a0?q=80&w=800&auto=format&fit=crop"
-              alt="Khu vực làm việc tại quán cafe jokopi"
+              alt="Khu v?c l�m vi?c t?i qu�n cafe jokopi"
             />
           </aside>
         </div>
@@ -67,7 +67,7 @@ function ActionsSection({ q, setQ, cat, setCat, price, setPrice }) {
   return (
     <section className="section actions">
       <div className="container">
-        <h3 className="section-title">Tìm món & Giỏ hàng</h3>
+        <h3 className="section-title">T�m m�n & Gi? h�ng</h3>
         <div className="actions-bar">
           <FilterBar
             q={q}
@@ -78,7 +78,7 @@ function ActionsSection({ q, setQ, cat, setCat, price, setPrice }) {
             setPrice={setPrice}
           />
           <Link className="btn" to="/cart">
-            Xem giỏ hàng
+            Xem gi? h�ng
           </Link>
         </div>
       </div>
@@ -91,7 +91,7 @@ function GallerySection() {
   return (
     <section className="section" id="activities">
       <div className="container">
-        <h3 className="section-title">Hoạt động của quán</h3>
+        <h3 className="section-title">Ho?t d?ng c?a qu�n</h3>
         <div className="gallery">
           {items.map((it) => (
             <img
@@ -122,7 +122,7 @@ function NewsSection() {
   return (
     <section className="section" id="news">
       <div className="container">
-        <h3 className="section-title">Tin tức về quán</h3>
+        <h3 className="section-title">Tin t?c v? qu�n</h3>
         <div className="news-grid">
           {sorted.map((n, i) => (
             <article key={i} className="card">
@@ -159,7 +159,7 @@ export function HomePage({ sidebarOpen, setSidebarOpen }) {
   const loadReviews = useReviewStore((s) => s.loadFromAPI)
   const role = useAuthStore((s) => s.role)
 
-  // Load products from MySQL khi vào trang
+  // Load products from MySQL khi v�o trang
   useEffect(() => {
     loadFromAPI()
   }, [loadFromAPI])

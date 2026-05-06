@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { storage } from '../utils/storage.js';
-import newsServices from '../services/newServices.js';
+import newsService from '../services/newService.js';
 
 const genId = () => (crypto?.randomUUID ? crypto.randomUUID() : `n_${Date.now()}_${Math.random().toString(36).slice(2)}`);
 
@@ -13,7 +13,7 @@ export const useNewsStore = create((set, get) => ({
   async loadFromAPI() {
     set({ loading: true, error: null });
     try {
-      const response = await newsServices.getAll();
+      const response = await newsService.getAll();
       const payload = response.data;
       const apiNews = Array.isArray(payload) ? payload : (payload?.data || []);
 
@@ -41,7 +41,7 @@ export const useNewsStore = create((set, get) => ({
   async add({ title, img, excerpt }) {
     set({ loading: true, error: null });
     try {
-      const response = await newsServices.create({
+      const response = await newsService.create({
         title,
         image_url: img,  // Send as image_url to match backend field
         content: excerpt || title,  // Backend requires 'content', not 'excerpt'
@@ -73,7 +73,7 @@ export const useNewsStore = create((set, get) => ({
   async update(id, patch) {
     set({ loading: true, error: null });
     try {
-      await newsServices.update(id, patch);
+      await newsService.update(id, patch);
       const next = get().news.map(n => n.id === id ? { ...n, ...patch } : n);
       set({ news: next, loading: false });
       storage.set('news', next);
@@ -88,7 +88,7 @@ export const useNewsStore = create((set, get) => ({
   async remove(id) {
     set({ loading: true, error: null });
     try {
-      await newsServices.delete(id);
+      await newsService.delete(id);
       const next = get().news.filter(n => n.id !== id);
       set({ news: next, loading: false });
       storage.set('news', next);

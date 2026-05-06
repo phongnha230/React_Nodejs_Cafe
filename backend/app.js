@@ -56,18 +56,21 @@ app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 
 // Ensure upload directory exists and serve it statically
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads');
-try {
-  if (!fs.existsSync(UPLOAD_DIR)) {
+if (!fs.existsSync(UPLOAD_DIR)) {
+  try {
     fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+    console.log(`📁 Created upload directory: ${UPLOAD_DIR}`);
+  } catch (e) {
+    console.warn('⚠️ Unable to ensure upload directory:', e.message);
   }
-} catch (e) {
-  console.warn('⚠️ Unable to ensure upload directory:', e.message);
 }
 app.use('/uploads', express.static(UPLOAD_DIR));
 
-// Serve product images from src/assets
+// Serve static assets if directory exists (for optional local frontend assets)
 const ASSETS_DIR = path.join(process.cwd(), 'src', 'assets');
-app.use('/src/assets', express.static(ASSETS_DIR));
+if (fs.existsSync(ASSETS_DIR)) {
+  app.use('/src/assets', express.static(ASSETS_DIR));
+}
 
 // Logging middleware
 app.use(logger);
