@@ -17,6 +17,7 @@ const reviewRoutes = require("./routes/reviewRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 const newRoutes = require("./routes/newRoutes");
+const tableRoutes = require("./routes/tableRoutes");
 // Load required models for associations
 const sequelize = require("./config/database"); // <== dùng file database.js
 require("./models/index")(sequelize);
@@ -87,6 +88,7 @@ app.use("/api/reviews", reviewRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/news", newRoutes);
+app.use("/api/tables", tableRoutes);
 app.get('/', (req, res) => res.send('☕ Cafe Backend is running!'));
 
 // 404 handler (after routes, before error handler)
@@ -111,4 +113,3 @@ sequelize
     console.error("❌ Failed to sync database:", err);
     process.exit(1);
   });
-

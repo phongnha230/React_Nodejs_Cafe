@@ -16,7 +16,12 @@ export function ProductCard({ product }) {
   const [openRate, setOpenRate] = useState(false); // deprecated here; kept to avoid breaking, not used
   return (
     <div className="card">
-      <img className="product-img" src={product.image} alt={product.name} />
+      <img 
+        className="product-img" 
+        src={product.image} 
+        alt={product.name} 
+        style={{ filter: product.is_available ? 'none' : 'grayscale(100%)', opacity: product.is_available ? 1 : 0.6 }}
+      />
       <div className="space-between">
         <div>
           <div style={{ fontWeight: 600 }}>{product.name}</div>
@@ -46,7 +51,8 @@ export function ProductCard({ product }) {
           </div>
         </div>
         <button
-          className="btn"
+          className={`btn ${!product.is_available ? 'secondary' : ''}`}
+          disabled={!product.is_available}
           onClick={() => {
             if (isGuest) {
               notify.show({
@@ -66,7 +72,7 @@ export function ProductCard({ product }) {
             });
           }}
         >
-          Order
+          {product.is_available ? 'Order' : 'Hết hàng'}
         </button>
       </div>
       {/* Rating is only allowed after purchase from CustomerOrders page */}

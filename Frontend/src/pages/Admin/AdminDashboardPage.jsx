@@ -8,9 +8,14 @@ import { usePaymentStore } from '../../stores/paymentStore.js'
 import { Sidebar } from '../../components/layout/Sidebar.jsx'
 import paymentService from '../../services/paymentService.js'
 import userService from '../../services/userService.js'
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  PieChart, Pie, Cell 
+} from 'recharts'
 export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
   const orders = useOrderStore((s) => s.orders)
   const loadOrders = useOrderStore((s) => s.loadFromAPI)
+  const loadStats = useOrderStore((s) => s.loadStatsFromAPI)
   const stats = useOrderStore((s) => s.stats())
   const setOrderStatus = useOrderStore((s) => s.updateStatus)
   const [detailOrder, setDetailOrder] = useState(null)
@@ -72,12 +77,21 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
     return acc
   }, {})
 
+  // Chuẩn bị dữ liệu cho biểu đồ tròn (Status Breakdown)
+  const pieData = stats.statusBreakdown ? Object.entries(stats.statusBreakdown).map(([name, value]) => ({
+    name: name === 'delivered' ? 'Thành công' : name === 'cancelled' ? 'Đã hủy' : 'Đang xử lý',
+    value
+  })) : []
+
+  const COLORS = ['#4CAF50', '#FF8042', '#0088FE', '#FFBB28']
+
   // Load all data on mount
   useEffect(() => {
     loadOrders()
+    loadStats()
     loadNews()
     loadProducts()
-  }, [loadOrders, loadNews, loadProducts])
+  }, [loadOrders, loadStats, loadNews, loadProducts])
 
   // Load payments khi chuyển sang tab payments
   useEffect(() => {
@@ -265,16 +279,91 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
                 <h3>{stats.totalOrders}</h3>
               </div>
               <div className="card">
-                <div>Doanh thu tổng</div>
-                <h3>{stats.totalRevenue.toLocaleString('vi-VN')}đ</h3>
+                <div>Doanh thu thực</div>
+                <h3 style={{ color: '#4CAF50' }}>{(stats.displayRevenue || 0).toLocaleString('vi-VN')}đ</h3>
+                <small style={{ color: '#999' }}>Chỉ tính đơn đã giao</small>
               </div>
               <div className="card">
-                <div>Doanh thu tháng</div>
-                <h3>{monthlyRevenue.toLocaleString('vi-VN')}đ</h3>
+                <div>Doanh thu lý thuyết</div>
+                <h3 style={{ color: '#6B4CE6' }}>{(stats.totalRevenue || 0).toLocaleString('vi-VN')}đ</h3>
+                <small style={{ color: '#999' }}>Bao gồm cả đơn đang xử lý</small>
+              </div>
+            </div>
+
+            <div className="dashboard-sections" style={{ marginBottom: '30px' }}>
+              <div className="dashboard-section chart-container" style={{ flex: 2 }}>
+                <h3>Biểu đồ Top món bán chạy</h3>
+                <div style={{ width: '100%', height: 300 }}>
+                  <ResponsiveContainer>
+                    <BarChart data={stats.topProducts || []}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="name" tick={{ fontSize: 12 }} interval={0} />
+                      <YAxis />
+                      <Tooltip 
+                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                        formatter={(value) => [`${value} ly`, 'Số lượng']}
+                      />
+                      <Bar dataKey="quantity" fill="#6B4CE6" radius={[4, 4, 0, 0]} barSize={40} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              <div className="dashboard-section chart-container" style={{ flex: 1 }}>
+                <h3>Tỷ lệ đơn hàng</h3>
+                <div style={{ width: '100%', height: 300 }}>
+                  <ResponsiveContainer>
+                    <PieChart>
+                      <Pie
+                        data={pieData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={80}
+                        paddingAngle={5}
+                        dataKey="value"
+                      >
+                        {pieData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend verticalAlign="bottom" height={36}/>
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </div>
 
             <div className="dashboard-sections">
+              <div className="dashboard-section">
+                <h3>Sản phẩm bán chạy (Top 5)</h3>
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Sản phẩm</th>
+                      <th>Số lượng bán</th>
+                      <th>Doanh thu món</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats.topProducts && stats.topProducts.length > 0 ? (
+                      stats.topProducts.map((p) => (
+                        <tr key={p.id}>
+                          <td>{p.name}</td>
+                          <td><strong>{p.quantity}</strong> ly</td>
+                          <td>{(p.revenue || 0).toLocaleString('vi-VN')}đ</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="3" style={{ textAlign: 'center', padding: '12px' }}>Chưa có dữ liệu</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
               <div className="dashboard-section">
                 <h3>Top khách hàng mua nhiều nhất</h3>
                 <table className="table">
@@ -286,7 +375,7 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {stats.topBuyers.map((b) => (
+                    {(stats.topBuyers || []).map((b) => (
                       <tr key={b.customerName}>
                         <td>{b.customerName}</td>
                         <td>{b.count}</td>
@@ -599,8 +688,9 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
                     r.readAsDataURL(imgFile)
                   })
                 }
+                const isAvailable = f.isAvailable.checked
                 if (!name || !category) return
-                addProduct({ name, price, category, image })
+                addProduct({ name, price, category, image, is_available: isAvailable })
                 f.reset()
                 setPreviewImg('')
               }}
@@ -666,6 +756,15 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
                   <span className="muted">Xem trước ảnh</span>
                 </div>
               )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '8px 0' }}>
+                <input
+                  name="isAvailable"
+                  type="checkbox"
+                  defaultChecked
+                  style={{ width: 18, height: 18 }}
+                />
+                <label>Sẵn sàng bán (Còn hàng)</label>
+              </div>
               <button className="btn">Thêm món</button>
             </form>
             <table className="table">
@@ -675,6 +774,7 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
                   <th>Tên</th>
                   <th>Giá</th>
                   <th>Loại</th>
+                  <th>Trạng thái</th>
                   <th></th>
                 </tr>
               </thead>
@@ -738,6 +838,23 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
                       ) : (
                         p.category
                       )}
+                    </td>
+                    <td>
+                      <button
+                        className={`btn ${p.is_available ? '' : 'secondary'}`}
+                        style={{
+                          fontSize: '12px',
+                          padding: '4px 8px',
+                          backgroundColor: p.is_available ? '#4CAF50' : '#f44336',
+                          color: 'white',
+                          border: 'none',
+                        }}
+                        onClick={() =>
+                          updateProduct(p.id, { is_available: !p.is_available })
+                        }
+                      >
+                        {p.is_available ? 'Còn hàng' : 'Hết hàng'}
+                      </button>
                     </td>
                     <td style={{ whiteSpace: 'nowrap' }}>
                       {editingId === p.id ? (

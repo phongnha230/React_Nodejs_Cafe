@@ -8,6 +8,7 @@ const Order = require('../models/order');
 const OrderItem = require('../models/orderItem');
 const Payment = require('../models/payment');
 const Product = require('../models/product');
+const Table = require('../models/table');
 const { ORDER_STATUS, VALID_TRANSITIONS } = require('../constants/orderStatus');
 const { calculateSubtotal } = require('../utils/priceCalculator');
 const logger = require('../config/logger');
@@ -20,46 +21,95 @@ class OrderService {
      * @returns {Promise<object>} Created order with items
      */
     async createOrder(userId, orderData) {
-        const { table_number, note, items } = orderData;
+        const { table_id, table_number, note, items } = orderData;
 
         // Validate items
         if (!Array.isArray(items) || items.length === 0) {
             throw new Error('Items array is required and must not be empty');
         }
 
-        // Validate each item
+        // Extract product IDs
+        const productIds = items.map(item => item.product_id);
+        
+        // Fetch products from database to get official prices
+        const products = await Product.findAll({
+            where: { id: productIds }
+        });
+
+        // Create a map for quick lookup
+        const productMap = {};
+        products.forEach(p => {
+            productMap[p.id] = p;
+        });
+
+        // Validate each item and calculate subtotal
+        let totalAmount = 0;
+        const validatedItems = [];
+        let resolvedTable = null;
+
+        if (table_id) {
+            resolvedTable = await Table.findByPk(table_id);
+            if (!resolvedTable) {
+                throw new Error(`Table with ID ${table_id} not found`);
+            }
+        } else if (table_number) {
+            resolvedTable = await Table.findOne({
+                where: { table_number }
+            });
+            if (!resolvedTable) {
+                throw new Error(`Table number ${table_number} not found`);
+            }
+        }
+
+        if (resolvedTable && resolvedTable.status === 'inactive') {
+            throw new Error(`Table ${resolvedTable.table_number} is inactive`);
+        }
+
         for (const item of items) {
-            if (!item.product_id || !item.quantity || !item.unit_price) {
-                throw new Error('Each item must have product_id, quantity, and unit_price');
+            const product = productMap[item.product_id];
+            
+            if (!product) {
+                throw new Error(`Product with ID ${item.product_id} not found`);
             }
-            if (item.quantity <= 0) {
-                throw new Error('Quantity must be greater than 0');
+            
+            if (!product.is_available) {
+                throw new Error(`Product "${product.name}" is currently not available`);
             }
+
+            if (!item.quantity || item.quantity <= 0) {
+                throw new Error(`Invalid quantity for product "${product.name}"`);
+            }
+
+            const unitPrice = parseFloat(product.price);
+            const subtotal = item.quantity * unitPrice;
+            totalAmount += subtotal;
+
+            validatedItems.push({
+                product_id: item.product_id,
+                quantity: item.quantity,
+                unit_price: unitPrice,
+                subtotal: subtotal
+            });
         }
 
         // Start transaction
         const transaction = await sequelize.transaction();
 
         try {
-            // Calculate total
-            const totalAmount = calculateSubtotal(items);
-
             // Create order
             const order = await Order.create({
                 user_id: userId,
-                table_number: table_number || null,
+                table_id: resolvedTable?.id || null,
+                table_number: resolvedTable?.table_number || table_number || null,
                 status: ORDER_STATUS.PENDING,
                 note: note || null,
                 total_amount: totalAmount
             }, { transaction });
 
-            // Prepare order items
-            const orderItems = items.map(item => ({
-                order_id: order.id,
-                product_id: item.product_id,
-                quantity: item.quantity,
-                unit_price: item.unit_price,
-                subtotal: item.quantity * item.unit_price
+            // Prepare order items with order_id
+            const orderItems = validatedItems.map(item => ({
+                ...item,
+                order_id: order.id
             }));
 
             // Create order items
@@ -68,7 +118,7 @@ class OrderService {
             // Commit transaction
             await transaction.commit();
 
-            logger.info('Order created', {
+            logger.info('Order created with validated prices', {
                 orderId: order.id,
                 userId,
                 totalAmount,
@@ -114,7 +164,8 @@ class OrderService {
             order: [['id', 'DESC']],
             include: [
                 { model: OrderItem, as: 'items' },
-                { model: Payment, as: 'payments' }
+                { model: Payment, as: 'payments' },
+                { model: Table, as: 'table' }
             ]
         });
 
@@ -152,7 +203,8 @@ class OrderService {
                     as: 'items',
                     include: [{ model: Product, as: 'product' }]
                 },
-                { model: Payment, as: 'payments' }
+                { model: Payment, as: 'payments' },
+                { model: Table, as: 'table' }
             ]
         });
 
@@ -249,23 +301,70 @@ class OrderService {
             };
         }
 
-        const orders = await Order.findAll({ where });
+        const orders = await Order.findAll({ 
+            where,
+            include: [
+                {
+                    model: OrderItem,
+                    as: 'items',
+                    include: [{ model: Product, as: 'product' }]
+                }
+            ]
+        });
 
         const stats = {
             totalOrders: orders.length,
-            totalRevenue: orders.reduce((sum, order) => sum + parseFloat(order.total_amount), 0),
+            totalRevenue: 0, // Theoretical revenue (all orders)
+            realRevenue: 0,  // Actual revenue (only delivered orders)
             statusBreakdown: {},
+            topProducts: [],
             averageOrderValue: 0
         };
 
-        // Calculate status breakdown
+        const productSales = {};
+
+        // Calculate statistics
         orders.forEach(order => {
+            const amount = parseFloat(order.total_amount);
+            stats.totalRevenue += amount;
+            
+            // Only count revenue for delivered orders
+            if (order.status === ORDER_STATUS.DELIVERED) {
+                stats.realRevenue += amount;
+            }
+
             stats.statusBreakdown[order.status] = (stats.statusBreakdown[order.status] || 0) + 1;
+
+            // Track product sales for top products
+            if (order.items && order.status !== ORDER_STATUS.CANCELLED) {
+                order.items.forEach(item => {
+                    const productId = item.product_id;
+                    const productName = item.product ? item.product.name : `Product #${productId}`;
+                    
+                    if (!productSales[productId]) {
+                        productSales[productId] = {
+                            id: productId,
+                            name: productName,
+                            quantity: 0,
+                            revenue: 0
+                        };
+                    }
+                    
+                    productSales[productId].quantity += item.quantity;
+                    productSales[productId].revenue += parseFloat(item.subtotal);
+                });
+            }
         });
 
-        // Calculate average
-        if (stats.totalOrders > 0) {
-            stats.averageOrderValue = stats.totalRevenue / stats.totalOrders;
+        // Sort and get top 5 products
+        stats.topProducts = Object.values(productSales)
+            .sort((a, b) => b.quantity - a.quantity)
+            .slice(0, 5);
+
+        // Calculate average order value (based on successful orders)
+        const successfulOrdersCount = stats.statusBreakdown[ORDER_STATUS.DELIVERED] || 0;
+        if (successfulOrdersCount > 0) {
+            stats.averageOrderValue = stats.realRevenue / successfulOrdersCount;
         }
 
         return stats;

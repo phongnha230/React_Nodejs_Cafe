@@ -7,6 +7,7 @@ const Product = sequelize.define('Product', {
   category: { type: DataTypes.STRING, allowNull: false },
   price: { type: DataTypes.DECIMAL(10,2), allowNull: false },
   image_url: { type: DataTypes.TEXT },
+  is_available: { type: DataTypes.BOOLEAN, defaultValue: true },
   created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
 }, {
   tableName: 'products',

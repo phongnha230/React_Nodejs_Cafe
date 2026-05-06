@@ -29,6 +29,10 @@ export const API_ENDPOINTS = {
     CREATE: '/orders',
     UPDATE_STATUS: (id) => `/orders/${id}/status`,
   },
+  TABLES: {
+    LIST: '/tables',
+    DETAIL: (id) => `/tables/${id}`,
+  },
   PAYMENTS: {
     LIST: '/payments',
     DETAIL: (id) => `/payments/${id}`,

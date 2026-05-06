@@ -4,12 +4,17 @@ import orderService from '../services/orderService.js';
 
 const initial = storage.get('orders', []);
 
+const toAddress = (order) => {
+  const tableNumber = order?.table?.table_number ?? order?.tableNumber ?? order?.table_number ?? null;
+  return order?.address || (tableNumber ? `Ban ${tableNumber}` : 'Mang ve');
+};
+
 export const useOrderStore = create((set, get) => ({
   orders: initial,
+  serverStats: null,
   loading: false,
   error: null,
 
-  // Load orders from API (MySQL Database)
   async loadFromAPI() {
     set({ loading: true, error: null });
     try {
@@ -17,36 +22,32 @@ export const useOrderStore = create((set, get) => ({
       const payload = response.data;
       const apiOrders = Array.isArray(payload) ? payload : (payload?.data || []);
 
-      // Normalize API data to match frontend store schema
-      const normalized = apiOrders.map((o) => ({
-        ...o,
-        total: Number(o.total ?? o.total_amount ?? 0) || 0,
-        createdAt: o.createdAt || o.created_at,
-        address: o.address || (o.table_number ? `Bàn số ${o.table_number}` : 'Mang về'),
-        // Backend order doesn't have paymentMethod yet, preserve if exists or default
-        paymentMethod: o.paymentMethod || 'direct',
-        items: Array.isArray(o.items) ? o.items.map(i => ({
-          ...i,
-          productId: i.productId ?? i.product_id,
+      const normalized = apiOrders.map((order) => ({
+        ...order,
+        total: Number(order.total ?? order.total_amount ?? 0) || 0,
+        createdAt: order.createdAt || order.created_at,
+        tableId: order.tableId ?? order.table_id ?? order.table?.id ?? null,
+        tableNumber: order.tableNumber ?? order.table_number ?? order.table?.table_number ?? null,
+        address: toAddress(order),
+        paymentMethod: order.paymentMethod || 'direct',
+        items: Array.isArray(order.items) ? order.items.map((item) => ({
+          ...item,
+          productId: item.productId ?? item.product_id,
         })) : [],
-        // Ensure status is preserved from backend
-        status: o.status || 'pending',
+        status: order.status || 'pending',
       }));
 
-      // Nếu API có dữ liệu, dùng API; nếu không, dùng localStorage
       if (normalized.length > 0) {
         set({ orders: normalized, loading: false });
-        storage.set('orders', normalized); // Cache vào localStorage
+        storage.set('orders', normalized);
         return normalized;
-      } else {
-        // Không có dữ liệu từ API, dùng localStorage
-        set({ loading: false });
-        return get().orders;
       }
+
+      set({ loading: false });
+      return get().orders;
     } catch (error) {
       console.error('Load orders from API failed:', error);
       set({ error: error.message, loading: false });
-      // Fallback to localStorage on error
       return get().orders;
     }
   },
@@ -54,24 +55,22 @@ export const useOrderStore = create((set, get) => ({
   async place(order) {
     set({ loading: true, error: null });
     try {
-      // Call backend API to create order
       const response = await orderService.create({
-        // Backend expects an integer table_number. Extract number from address like "Bàn số 1".
-        table_number: (() => {
-          const n = parseInt(String(order.address || '').replace(/\D+/g, ''));
-          return Number.isInteger(n) && n > 0 ? n : 1;
-        })(),
+        table_id: Number(order.tableId) || null,
+        table_number: Number(order.tableNumber) || null,
         note: order.note || null,
-        items: order.items.map(item => ({
+        items: order.items.map((item) => ({
           product_id: Number(item.productId) || 0,
           quantity: Number(item.quantity) || 1,
           unit_price: Number(item.product?.price) || 0,
         })),
       });
 
-      const createdOrder = response.data.order;
+      const createdOrder = response.data?.data?.order ?? response.data?.order;
+      if (!createdOrder) {
+        throw new Error('Invalid create order response');
+      }
 
-      // Format for frontend store
       const formatted = {
         id: createdOrder.id,
         customerName: order.customerName,
@@ -79,11 +78,12 @@ export const useOrderStore = create((set, get) => ({
         total: createdOrder.total_amount,
         createdAt: createdOrder.created_at,
         paymentMethod: order.paymentMethod,
-        address: order.address,
+        tableId: createdOrder.table_id ?? order.tableId ?? null,
+        tableNumber: createdOrder.table_number ?? order.tableNumber ?? null,
+        address: order.address || toAddress(createdOrder),
         status: createdOrder.status,
       };
 
-      // Add to local store
       const next = [formatted, ...get().orders];
       set({ orders: next, loading: false });
       storage.set('orders', next);
@@ -95,37 +95,72 @@ export const useOrderStore = create((set, get) => ({
       throw error;
     }
   },
+
   async updateStatus(id, status) {
     try {
-      // Update backend first
       await orderService.updateStatus(id, { status });
 
-      // Then update local state
-      const next = get().orders.map(o => o.id === id ? { ...o, status } : o);
+      const next = get().orders.map((order) => (
+        order.id === id ? { ...order, status } : order
+      ));
       set({ orders: next });
       storage.set('orders', next);
     } catch (error) {
       console.error('Update order status failed:', error);
-      // Still update locally even if backend fails
-      const next = get().orders.map(o => o.id === id ? { ...o, status } : o);
+      const next = get().orders.map((order) => (
+        order.id === id ? { ...order, status } : order
+      ));
       set({ orders: next });
       storage.set('orders', next);
     }
   },
+
+  async loadStatsFromAPI() {
+    try {
+      const response = await orderService.getStats();
+      set({ serverStats: response.data });
+      return response.data;
+    } catch (error) {
+      console.error('Load stats failed:', error);
+    }
+  },
+
   stats() {
     const orders = get().orders;
-    const totalOrders = orders.length;
-    const totalRevenue = orders.reduce((s, o) => s + o.total, 0);
-    const map = new Map();
-    for (const o of orders) {
-      const v = map.get(o.customerName) ?? { total: 0, count: 0 };
-      v.total += o.total; v.count += 1;
-      map.set(o.customerName, v);
+    const serverStats = get().serverStats;
+
+    if (serverStats) {
+      return {
+        ...serverStats,
+        displayRevenue: serverStats.realRevenue || 0
+      };
     }
+
+    const deliveredOrders = orders.filter((order) => order.status === 'delivered');
+    const totalOrders = orders.length;
+    const totalRevenue = deliveredOrders.reduce((sum, order) => sum + order.total, 0);
+    const map = new Map();
+
+    for (const order of orders) {
+      const name = order.customerName || 'Khach vang lai';
+      const value = map.get(name) ?? { total: 0, count: 0 };
+      value.total += order.total;
+      value.count += 1;
+      map.set(name, value);
+    }
+
     const topBuyers = Array.from(map.entries())
-      .map(([customerName, v]) => ({ customerName, ...v }))
+      .map(([customerName, value]) => ({ customerName, ...value }))
       .sort((a, b) => b.total - a.total)
       .slice(0, 5);
-    return { totalOrders, totalRevenue, topBuyers };
+
+    return {
+      totalOrders,
+      totalRevenue,
+      realRevenue: totalRevenue,
+      displayRevenue: totalRevenue,
+      topBuyers,
+      topProducts: []
+    };
   }
 }));

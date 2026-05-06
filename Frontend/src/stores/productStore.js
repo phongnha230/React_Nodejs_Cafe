@@ -32,6 +32,7 @@ export const useProductStore = create((set, get) => ({
           price: parseFloat(p.price),
           category: p.category,
           image: p.image_url, // Backend dùng image_url, frontend dùng image
+          is_available: !!p.is_available,
         }));
         set({ products: formattedProducts, loading: false });
         storage.set('products', formattedProducts); // Cache vào localStorage
@@ -58,6 +59,7 @@ export const useProductStore = create((set, get) => ({
         category: product.category,
         image_url: product.image || '',
         description: product.description || null,
+        is_available: product.is_available !== undefined ? product.is_available : true,
       });
 
       const createdProduct = response.data;
@@ -69,6 +71,7 @@ export const useProductStore = create((set, get) => ({
         price: parseFloat(createdProduct.price),
         category: createdProduct.category,
         image: createdProduct.image_url,
+        is_available: !!createdProduct.is_available,
       };
 
       const next = [formatted, ...get().products];
@@ -90,6 +93,7 @@ export const useProductStore = create((set, get) => ({
         price: patch.price,
         category: patch.category,
         image_url: patch.image,
+        is_available: patch.is_available,
       });
 
       const next = get().products.map(p => p.id === id ? { ...p, ...patch } : p);

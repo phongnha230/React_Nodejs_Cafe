@@ -5,6 +5,10 @@ const { handleValidationErrors } = require('./baseValidator');
  * Order validation rules
  */
 const validateOrderCreation = [
+  body('table_id')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('Table ID must be a positive integer'),
   body('table_number')
     .optional()
     .isInt({ min: 1 })

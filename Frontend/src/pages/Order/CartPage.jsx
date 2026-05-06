@@ -1,159 +1,198 @@
-import { useState } from 'react';
+ï»¿import { useEffect, useState } from 'react';
 import { useCartStore } from '../../stores/cartStore.js';
 import { useAuth } from '../../hooks/useAuth.js';
 import { useOrderStore } from '../../stores/orderStore.js';
 import paymentService from '../../services/paymentService.js';
-import { ROLES } from '../../constants/roles';
+import tableService from '../../services/tableService.js';
 
 const genId = () =>
   crypto?.randomUUID
     ? crypto.randomUUID()
-    : `o_${Date.now()}_${Math.random().toString(36).slice(2)}`
+    : `o_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
 export function CartPage() {
-  const items = useCartStore((s) => s.detailed());  // L?y gi? hàng
-  const total = useCartStore((s) => s.total());  // Tính t?ng ti?n
-  const add = useCartStore((s) => s.add);  // Thêm s?n ph?m vào gi? hàng
-  const remove = useCartStore((s) => s.remove);  // Xóa s?n ph?m kh?i gi? hàng
-  const clear = useCartStore((s) => s.clear);  // Xóa toàn b? gi? hàng
-  const { role, customerName, isCustomer } = useAuth();  // L?y thông tin ngu?i dùng
-  const displayName = customerName ?? 'Khách vãng lai';  // Hi?n th? tên ngu?i dùng
-  const place = useOrderStore((s) => s.place);  // Ð?t hàng
+  const items = useCartStore((state) => state.detailed());
+  const total = useCartStore((state) => state.total());
+  const add = useCartStore((state) => state.add);
+  const remove = useCartStore((state) => state.remove);
+  const clear = useCartStore((state) => state.clear);
+  const { customerName, isCustomer } = useAuth();
+  const displayName = customerName ?? 'Khach vang lai';
+  const place = useOrderStore((state) => state.place);
 
-  const [showPayment, setShowPayment] = useState(false)  // Hi?n th? form thanh toán
-  const [selectedPayment, setSelectedPayment] = useState('direct')  // Ch?n phuong th?c thanh toán
-  const [address, setAddress] = useState('')  // Ð?a ch? giao hàng
+  const [showPayment, setShowPayment] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState('direct');
+  const [tables, setTables] = useState([]);
+  const [tablesLoading, setTablesLoading] = useState(false);
+  const [selectedTableId, setSelectedTableId] = useState('');
 
-  const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0)  // Tính t?ng s? lu?ng s?n ph?m
+  const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
+  const availableTables = tables.filter((table) => table.status !== 'inactive');
+  const selectedTable = availableTables.find((table) => String(table.id) === String(selectedTableId));
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadTables = async () => {
+      setTablesLoading(true);
+      try {
+        const response = await tableService.getAll();
+        const payload = response.data;
+        const apiTables = Array.isArray(payload) ? payload : (payload?.data || []);
+
+        if (!mounted) return;
+
+        setTables(apiTables);
+        if (apiTables.length > 0) {
+          const firstAvailableTable = apiTables.find((table) => table.status !== 'inactive');
+          if (firstAvailableTable) {
+            setSelectedTableId((current) => current || String(firstAvailableTable.id));
+          }
+        }
+      } catch (error) {
+        console.error('Load tables failed:', error);
+      } finally {
+        if (mounted) {
+          setTablesLoading(false);
+        }
+      }
+    };
+
+    loadTables();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const checkout = () => {
-    if (items.length === 0) return  // N?u không có s?n ph?m trong gi? hàng, không cho d?t hàng
-    setAddress('Bàn s? 1')
-    setShowPayment(true)
-  }
+    if (items.length === 0) return;
+    if (availableTables.length === 0) {
+      alert('Chua co ban nao trong he thong');
+      return;
+    }
+    setShowPayment(true);
+  };
 
   const confirmPayment = async () => {
-    if (!address.trim()) {  // N?u không nh?p d?a ch? giao hàng, hi?n th? thông báo
-      alert('Vui lòng nh?p d?a ch? giao hàng')
-      return
+    if (!selectedTable) {
+      alert('Vui long chon ban');
+      return;
     }
 
+    const tableLabel = `Ban ${selectedTable.table_number}`;
     const order = {
       id: genId(),
-      customerName: isCustomer ? displayName : 'Khách vãng lai',
-      items: items.map((i) => ({
-        productId: i.productId,  // ID s?n ph?m
-        quantity: i.quantity,
-        product: i.product,  // Thêm product info d? backend l?y price
+      customerName: isCustomer ? displayName : 'Khach vang lai',
+      items: items.map((item) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        product: item.product,
       })),
-      total,  // T?ng ti?n
-      createdAt: new Date().toISOString(),  // Th?i gian d?t hàng
+      total,
+      createdAt: new Date().toISOString(),
       paymentMethod: selectedPayment,
-      address: address.trim(),
+      tableId: selectedTable.id,
+      tableNumber: selectedTable.table_number,
+      address: tableLabel,
     };
 
     try {
-      // Luu order vào database qua API
       const orderId = await place(order);
-      console.log('? Order created with ID:', orderId);
 
-      // T?o payment record trong database
       try {
         await paymentService.create({
-          order_id: orderId,  // ID don hàng t? database
-          amount: total,  // T?ng ti?n
-          method: selectedPayment === 'direct' ? 'cash' : selectedPayment,  // Phuong th?c thanh toán
-          status: 'completed', // M?c d?nh dã hoàn t?t
-          transaction_id:  // ID giao d?ch
-            selectedPayment !== 'direct' ? `TXN-${Date.now()}` : null,
+          order_id: orderId,
+          amount: total,
+          method: selectedPayment === 'direct' ? 'cash' : selectedPayment,
+          status: 'completed',
+          transaction_id: selectedPayment !== 'direct' ? `TXN-${Date.now()}` : null,
         });
-
-        console.log('? Payment record created successfully');
       } catch (error) {
-        console.error('?? Failed to create payment record:', error);
-        // Không hi?n th? l?i cho user, vì order dã du?c t?o
+        console.error('Failed to create payment record:', error);
       }
 
       clear();
-      setShowPayment(false);  // ?n form thanh toán
-      setAddress('');
+      setShowPayment(false);
 
       if (selectedPayment === 'direct') {
-        const w = window.open('', '_blank');
+        const popup = window.open('', '_blank');
         const lines = items
           .map(
-            (i) =>
-              `\n${i.product.name} x${i.quantity} - ${(
-                i.product.price * i.quantity
-              ).toLocaleString('vi-VN')}?`
+            (item) =>
+              `\n${item.product.name} x${item.quantity} - ${(
+                item.product.price * item.quantity
+              ).toLocaleString('vi-VN')}d`
           )
           .join('');
-        const html = `<!doctype html><html><head><meta charset="utf-8"><title>Hóa don</title></head><body>
-          <pre style="font:14px/1.6 system-ui, -apple-system, Segoe UI, Roboto">CAFÉ APP\n------------------------------\nKhách: ${order.customerName
-          }\nBàn: ${order.address}\nTh?i gian: ${new Date(
-            order.createdAt
-          ).toLocaleString(
+
+        const html = `<!doctype html><html><head><meta charset="utf-8"><title>Hoa don</title></head><body>
+          <pre style="font:14px/1.6 system-ui, -apple-system, Segoe UI, Roboto">CAFE APP\n------------------------------\nKhach: ${
+            order.customerName
+          }\nBan: ${order.address}\nThoi gian: ${new Date(order.createdAt).toLocaleString(
             'vi-VN'
-          )}\n\nM?t hàng:${lines}\n\nT?ng ti?n: ${total.toLocaleString(
+          )}\n\nMat hang:${lines}\n\nTong tien: ${total.toLocaleString(
             'vi-VN'
-          )}?\nPhuong th?c: Tr?c ti?p\n\nC?m on quý khách!</pre>
+          )}d\nPhuong thuc: Truc tiep\n\nCam on quy khach!</pre>
           <script>window.onload=()=>{window.print(); setTimeout(()=>window.close(), 300);}</script>
         </body></html>`;
-        w.document.write(html);
-        w.document.close();
+
+        popup.document.write(html);
+        popup.document.close();
       } else {
-        alert('Thanh toán online dã ghi nh?n!');
+        alert('Thanh toan online da ghi nhan!');
       }
     } catch (error) {
-      console.error('? Order creation failed:', error);
-      alert('Ð?t hàng th?t b?i: ' + (error.response?.data?.message || error.message));
+      console.error('Order creation failed:', error);
+      alert('Dat hang that bai: ' + (error.response?.data?.message || error.message));
     }
-  }
+  };
 
   if (showPayment) {
     return (
       <div className="container">
-        <h2>Thanh toán</h2>
+        <h2>Thanh toan</h2>
         <div className="payment-section">
           <div className="payment-info">
-            <h3>T?ng ti?n: {total.toLocaleString('vi-VN')}d</h3>
+            <h3>Tong tien: {total.toLocaleString('vi-VN')}d</h3>
             <div className="order-summary">
-              <h4>Ðon hàng c?a b?n</h4>
+              <h4>Don hang cua ban</h4>
               <div className="order-items">
-                {items.map((i) => (
-                  <div key={i.productId} className="order-item">
+                {items.map((item) => (
+                  <div key={item.productId} className="order-item">
                     <div className="order-item-left">
-                      <img src={i.product.image} alt={i.product.name} />
-                      <div className="order-item-name">{i.product.name}</div>
+                      <img src={item.product.image} alt={item.product.name} />
+                      <div className="order-item-name">{item.product.name}</div>
                     </div>
-                    <div className="order-item-qty">x{i.quantity}</div>
+                    <div className="order-item-qty">x{item.quantity}</div>
                     <div className="order-item-price">
-                      {(i.product.price * i.quantity).toLocaleString('vi-VN')}?
+                      {(item.product.price * item.quantity).toLocaleString('vi-VN')}d
                     </div>
                   </div>
                 ))}
               </div>
               <div className="order-total">
-                <strong>T?m tính:</strong> {total.toLocaleString('vi-VN')}?
+                <strong>Tam tinh:</strong> {total.toLocaleString('vi-VN')}d
               </div>
             </div>
 
             <div className="address-section">
-              <label className="address-label">Ch?n s? bàn:</label>
+              <label className="address-label">Chon so ban:</label>
               <select
                 className="address-input"
-                value={address || 'Bàn s? 1'}
-                onChange={(e) => setAddress(e.target.value)}
+                value={selectedTableId}
+                onChange={(event) => setSelectedTableId(event.target.value)}
+                disabled={tablesLoading || availableTables.length === 0}
               >
-                {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => (
-                  <option key={n} value={`Bàn s? ${n}`}>
-                    Bàn s? {n}
+                {availableTables.map((table) => (
+                  <option key={table.id} value={table.id}>
+                    Ban {table.table_number}
                   </option>
                 ))}
               </select>
             </div>
 
-            <p>Ch?n phuong th?c thanh toán:</p>
+            <p>Chon phuong thuc thanh toan:</p>
           </div>
           <div className="payment-options">
             <label className="payment-option">
@@ -162,7 +201,7 @@ export function CartPage() {
                 name="payment"
                 value="direct"
                 checked={selectedPayment === 'direct'}
-                onChange={(e) => setSelectedPayment(e.target.value)}
+                onChange={(event) => setSelectedPayment(event.target.value)}
               />
               <div
                 className="payment-card"
@@ -171,8 +210,8 @@ export function CartPage() {
                   borderColor: selectedPayment === 'direct' ? '#06b6d4' : '',
                 }}
               >
-                <div className="payment-logo">??</div>
-                <span>Tr?c ti?p</span>
+                <div className="payment-logo">$$</div>
+                <span>Truc tiep</span>
               </div>
             </label>
             <label className="payment-option">
@@ -181,10 +220,10 @@ export function CartPage() {
                 name="payment"
                 value="vnpay"
                 checked={selectedPayment === 'vnpay'}
-                onChange={(e) => setSelectedPayment(e.target.value)}
+                onChange={(event) => setSelectedPayment(event.target.value)}
               />
               <div className="payment-card">
-                <div className="payment-logo">??</div>
+                <div className="payment-logo">QR</div>
                 <span>VNPay</span>
               </div>
             </label>
@@ -195,7 +234,7 @@ export function CartPage() {
               <div className="qr-code">
                 {selectedPayment === 'vnpay' ? 'VNPay QR' : 'QR Code'}
               </div>
-              <p>Quét mã QR d? thanh toán</p>
+              <p>Quet ma QR de thanh toan</p>
             </div>
           )}
 
@@ -204,49 +243,53 @@ export function CartPage() {
               className="btn secondary"
               onClick={() => setShowPayment(false)}
             >
-              Quay l?i
+              Quay lai
             </button>
-            <button className="btn" onClick={confirmPayment}>
-              Xác nh?n thanh toán
+            <button
+              className="btn"
+              onClick={confirmPayment}
+              disabled={tablesLoading || !selectedTable}
+            >
+              Xac nhan thanh toan
             </button>
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   return (
     <div className="container">
-      <h2>Gi? hàng</h2>
+      <h2>Gio hang</h2>
       {items.length === 0 ? (
         <div className="empty-cart">
-          <p>Chua có s?n ph?m nào trong gi? hàng.</p>
+          <p>Chua co san pham nao trong gio hang.</p>
         </div>
       ) : (
         <>
           <div className="cart-items">
-            {items.map((i) => (
-              <div key={i.productId} className="cart-item">
+            {items.map((item) => (
+              <div key={item.productId} className="cart-item">
                 <img
                   className="cart-item-image"
-                  src={i.product.image}
-                  alt={i.product.name}
+                  src={item.product.image}
+                  alt={item.product.name}
                 />
                 <div className="cart-item-info">
                   <div className="cart-item-price">
-                    {i.product.price.toLocaleString('vi-VN')}?
+                    {item.product.price.toLocaleString('vi-VN')}d
                   </div>
                   <div className="quantity-controls">
                     <button
                       className="qty-btn"
-                      onClick={() => remove(i.productId)}
+                      onClick={() => remove(item.productId)}
                     >
                       -
                     </button>
-                    <span className="qty-display">{i.quantity}</span>
+                    <span className="qty-display">{item.quantity}</span>
                     <button
                       className="qty-btn"
-                      onClick={() => add(i.productId)}
+                      onClick={() => add(item.productId)}
                     >
                       +
                     </button>
@@ -255,10 +298,12 @@ export function CartPage() {
                 <button
                   className="delete-btn"
                   onClick={() => {
-                    for (let j = 0; j < i.quantity; j++) remove(i.productId)
+                    for (let index = 0; index < item.quantity; index += 1) {
+                      remove(item.productId);
+                    }
                   }}
                 >
-                  Xóa
+                  Xoa
                 </button>
               </div>
             ))}
@@ -266,7 +311,7 @@ export function CartPage() {
 
           <div className="cart-summary">
             <div className="summary-row">
-              <label>S? lu?ng:</label>
+              <label>So luong:</label>
               <input
                 type="text"
                 value={totalQuantity}
@@ -275,18 +320,18 @@ export function CartPage() {
               />
             </div>
             <div className="summary-row">
-              <label>T?ng ti?n:</label>
+              <label>Tong tien:</label>
               <div className="total-amount">
-                {total.toLocaleString('vi-VN')}?
+                {total.toLocaleString('vi-VN')}d
               </div>
             </div>
           </div>
 
           <button className="checkout-btn" onClick={checkout}>
-            Thanh Toán
+            Thanh toan
           </button>
         </>
       )}
     </div>
-  )
+  );
 }

@@ -12,6 +12,7 @@ module.exports = (sequelize) => {
     Payment,
     Notification,
     News,
+    Table,
   } = sequelize.models;
 
   if (Order && OrderItem) {
@@ -22,6 +23,11 @@ module.exports = (sequelize) => {
   if (User && Order) {
     User.hasMany(Order, { foreignKey: 'user_id', as: 'orders' });
     Order.belongsTo(User, { foreignKey: 'user_id', as: 'User' });
+  }
+
+  if (Table && Order) {
+    Table.hasMany(Order, { foreignKey: 'table_id', as: 'orders' });
+    Order.belongsTo(Table, { foreignKey: 'table_id', as: 'table' });
   }
 
   if (Product && OrderItem) {

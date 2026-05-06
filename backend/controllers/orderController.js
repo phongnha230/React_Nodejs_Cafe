@@ -12,9 +12,10 @@ const logger = require('../config/logger');
  */
 exports.createOrder = async (req, res) => {
   try {
-    const { table_number, note, items } = req.body;
+    const { table_id, table_number, note, items } = req.body;
 
     const result = await orderService.createOrder(req.user.id, {
+      table_id,
       table_number,
       note,
       items
