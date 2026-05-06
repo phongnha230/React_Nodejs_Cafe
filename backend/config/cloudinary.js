@@ -13,11 +13,11 @@ cloudinary.config({
 
 // Thiết lập Storage cho Multer
 const storage = new CloudinaryStorage({
-  cloudinary: cloudinary,
+  cloudinary,
   params: {
-    folder: 'cafe_app_uploads', // Tên thư mục trên Cloudinary
-    allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
-    transformation: [{ width: 800, height: 600, crop: 'limit' }] // Tự động tối ưu ảnh
+    folder: 'cafe_app_uploads',
+    resource_type: 'auto',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'mov', 'avi', 'mkv', 'webm']
   }
 });
 

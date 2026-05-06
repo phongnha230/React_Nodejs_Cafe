@@ -89,10 +89,11 @@ class ProductService {
      * @returns {Promise<object>} Created product
      */
     async createProduct(productData) {
-        const { name, price, image, category, is_available = true } = productData;
+        const { name, image_url, category, is_available = true } = productData;
+        const price = Number(productData.price);
 
         // Validation
-        if (!name || typeof price !== 'number') {
+        if (!name || !Number.isFinite(price)) {
             throw new Error('Name and numeric price are required');
         }
 
@@ -103,7 +104,7 @@ class ProductService {
         const product = await Product.create({
             name,
             price,
-            image: image || null,
+            image_url: image_url || null,
             category: category || null,
             is_available
         });
@@ -126,17 +127,18 @@ class ProductService {
             throw new Error('Product not found');
         }
 
-        const { name, price, image, category, is_available } = updateData;
+        const { name, image_url, category, is_available } = updateData;
+        const price = updateData.price !== undefined ? Number(updateData.price) : undefined;
 
         // Validate price if provided
-        if (typeof price === 'number' && price < 0) {
+        if (Number.isFinite(price) && price < 0) {
             throw new Error('Price must be non-negative');
         }
 
         await product.update({
             name: name ?? product.name,
-            price: typeof price === 'number' ? price : product.price,
-            image: image !== undefined ? image : product.image,
+            price: Number.isFinite(price) ? price : product.price,
+            image_url: image_url !== undefined ? image_url : product.image_url,
             category: category !== undefined ? category : product.category,
             is_available: typeof is_available === 'boolean' ? is_available : product.is_available
         });

@@ -5,13 +5,24 @@
 
 const productService = require('../services/productService');
 const { success, error, created, paginated } = require('../utils/responseFormatter');
+const upload = require('../middleware/uploadMiddleware');
+
+exports.uploadMedia = upload.single('image');
+
+const buildProductPayload = (req) => {
+  const payload = { ...req.body };
+  if (req.file) {
+    payload.image_url = req.file.path;
+  }
+  return payload;
+};
 
 /**
  * Create new product
  */
 exports.create = async (req, res) => {
   try {
-    const product = await productService.createProduct(req.body);
+    const product = await productService.createProduct(buildProductPayload(req));
     res.status(201).json(created(product, 'Product created successfully'));
   } catch (err) {
     if (err.message.includes('required') || err.message.includes('must be')) {
@@ -76,7 +87,7 @@ exports.update = async (req, res) => {
       return res.status(400).json(error('Invalid product ID', 400));
     }
 
-    const product = await productService.updateProduct(id, req.body);
+    const product = await productService.updateProduct(id, buildProductPayload(req));
     res.json(success(product, 'Product updated successfully'));
   } catch (err) {
     if (err.message === 'Product not found') {

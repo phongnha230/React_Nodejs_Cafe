@@ -90,7 +90,7 @@ const newController = {
         finalImageUrl = image_url;
       } else if (req.file) {
         // If file is uploaded via multipart/form-data
-        finalImageUrl = `/uploads/${req.file.filename}`;
+        finalImageUrl = req.file.path;
       }
 
       const news = await News.create({
@@ -130,7 +130,7 @@ const newController = {
       if (image_url) {
         updateData.image_url = image_url;
       } else if (req.file) {
-        updateData.image_url = `/uploads/${req.file.filename}`;
+        updateData.image_url = req.file.path;
       }
 
       await news.update(updateData);

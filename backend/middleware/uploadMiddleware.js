@@ -1,14 +1,10 @@
 const multer = require('multer');
 const { storage } = require('../config/cloudinary');
 
-/**
- * Cloudinary Upload Middleware
- * Sử dụng CloudinaryStorage thay vì DiskStorage
- */
-const upload = multer({ 
-  storage: storage,
+const upload = multer({
+  storage,
   limits: {
-    fileSize: 5 * 1024 * 1024 // Giới hạn 5MB
+    fileSize: 50 * 1024 * 1024
   }
 });
 
