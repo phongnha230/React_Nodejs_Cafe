@@ -4,22 +4,21 @@ import { useUsersStore } from '../../stores/usersStore.js'
 import { useNewsStore } from '../../stores/newsStore.js'
 import { useProductStore } from '../../stores/productStore.js'
 import { useActivitiesStore } from '../../stores/activitiesStore.js'
-import { usePaymentStore } from '../../stores/paymentStore.js'
 import { Sidebar } from '../../components/layout/Sidebar.jsx'
-import paymentService from '../../services/paymentService.js'
+import tableService from '../../services/tableService.js'
 import userService from '../../services/userService.js'
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell 
 } from 'recharts'
+
 export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
   const orders = useOrderStore((s) => s.orders)
   const loadOrders = useOrderStore((s) => s.loadFromAPI)
-  const loadStats = useOrderStore((s) => s.loadStatsFromAPI)
   const stats = useOrderStore((s) => s.stats())
   const setOrderStatus = useOrderStore((s) => s.updateStatus)
   const [detailOrder, setDetailOrder] = useState(null)
-  const [tab, setTab] = useState('revenue') // revenue | customers | menu | news | orders | payments
+  const [tab, setTab] = useState('revenue') // revenue | customers | menu | news | orders | tables
   const users = useUsersStore((s) => s.users)
   const customers = useUsersStore((s) => s.getCustomers()) // Only customers
   const loadUsers = useUsersStore((s) => s.loadFromAPI)
@@ -40,9 +39,6 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
   const activityItems = useActivitiesStore((s) => s.items)
   const addActivity = useActivitiesStore((s) => s.add)
   const removeActivity = useActivitiesStore((s) => s.remove)
-  const payments = usePaymentStore((s) => s.payments)
-  const setPayments = usePaymentStore((s) => s.setPayments)
-  const updatePaymentStatus = usePaymentStore((s) => s.updateStatus)
   const [editingId, setEditingId] = useState(null)
   const [previewImg, setPreviewImg] = useState('')
   const [newsPreview, setNewsPreview] = useState('')
@@ -50,19 +46,9 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
   const [newsRowPreview, setNewsRowPreview] = useState('')
   const [newsSearch, setNewsSearch] = useState('')
   const [newsPage, setNewsPage] = useState(1)
-  const [loadingPayments, setLoadingPayments] = useState(false)
-
-  // Calculate monthly revenue
-  const monthlyRevenue = orders
-    .filter((o) => {
-      const orderDate = new Date(o.createdAt)
-      const currentDate = new Date()
-      return (
-        orderDate.getMonth() === currentDate.getMonth() &&
-        orderDate.getFullYear() === currentDate.getFullYear()
-      )
-    })
-    .reduce((sum, o) => sum + o.total, 0)
+  const [tables, setTables] = useState([])
+  const [loadingTables, setLoadingTables] = useState(false)
+  const [selectedOrderTableFilter, setSelectedOrderTableFilter] = useState('all')
 
   // Group orders by time periods
   const ordersByTime = orders.reduce((acc, order) => {
@@ -88,43 +74,22 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
   // Load all data on mount
   useEffect(() => {
     loadOrders()
-    loadStats()
     loadNews()
     loadProducts()
-  }, [loadOrders, loadStats, loadNews, loadProducts])
+    loadTables()
+  }, [loadOrders, loadNews, loadProducts])
 
-  // Load payments khi chuyển sang tab payments
-  useEffect(() => {
-    if (tab === 'payments') {
-      // Reset payments trước khi load để tránh hiển thị dữ liệu cũ từ localStorage
-      setPayments([])
-      loadPayments()
-    }
-    if (tab === 'accounts') {
-      loadUsers()
-    }
-  }, [tab])
-
-  // Hàm load payments từ API
-  const loadPayments = async () => {
+  const loadTables = async () => {
     try {
-      setLoadingPayments(true)
-      const response = await paymentService.getAll()
-      if (response.data) {
-        setPayments(response.data)
-        // Xóa localStorage nếu API trả về mảng rỗng (backend đã xóa hết)
-        if (response.data.length === 0) {
-          localStorage.removeItem('payments')
-        }
-      } else {
-        // Nếu không có response.data, xóa localStorage và set payments rỗng
-        setPayments([])
-        localStorage.removeItem('payments')
-      }
+      setLoadingTables(true)
+      const response = await tableService.getAll()
+      const payload = response.data
+      const apiTables = Array.isArray(payload) ? payload : (payload?.data || [])
+      setTables(apiTables)
     } catch (error) {
-      console.error('Error loading payments:', error)
+      console.error('Error loading tables:', error)
     } finally {
-      setLoadingPayments(false)
+      setLoadingTables(false)
     }
   }
 
@@ -164,41 +129,86 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
     return `${day}/${month}/${year}`
   }
 
-  // Lấy tên khách hàng từ local orders (vì payment không join với order)
-  const getCustomerName = (payment) => {
-    // Tìm order từ localStorage
-    const allOrders = JSON.parse(localStorage.getItem('orders') || '[]')
-    const localOrder = allOrders[payment.order_id - 1] // order_id là index
-
-    if (localOrder?.customerName) {
-      return localOrder.customerName
-    }
-
-    // Fallback: tìm từ orderStore
-    const order = orders.find((o, idx) => idx + 1 === payment.order_id)
-    return order?.customerName || 'Khách hàng #' + payment.order_id
-  }
-
   // Chuyển đổi tên phương thức thanh toán
+  const getOrderPayment = (order) => (
+    Array.isArray(order?.payments) && order.payments.length > 0
+      ? order.payments[0]
+      : null
+  )
+
   const getPaymentMethodName = (method) => {
     const methods = {
       cash: 'Tiền mặt',
+      direct: 'Tiền mặt',
+      momo: 'MoMo',
+      mono: 'MoMo',
       vnpay: 'VNPay',
-      mono: 'Mono',
+      online: 'Online',
+      card: 'Thẻ',
     }
-    return methods[method?.toLowerCase()] || method || 'N/A'
+    return methods[String(method || '').toLowerCase()] || method || 'N/A'
   }
 
-  // Chuyển đổi trạng thái
-  const getPaymentStatusText = (status) => {
+  const getTableStatusText = (status) => {
     const statuses = {
-      success: 'Thành công',
-      completed: 'Thành công',
-      failed: 'Thất bại',
-      pending: 'Chờ xử lý',
+      available: 'Trống',
+      occupied: 'Đang có khách',
+      reserved: 'Đã đặt',
+      inactive: 'Tạm khóa',
     }
-    return statuses[status?.toLowerCase()] || status || 'Chờ xử lý'
+    return statuses[status] || status || 'Không rõ'
   }
+
+  const tableStats = tables.reduce(
+    (acc, table) => {
+      acc.total += 1
+      acc[table.status] = (acc[table.status] || 0) + 1
+      return acc
+    },
+    { total: 0, available: 0, occupied: 0, reserved: 0, inactive: 0 }
+  )
+
+  const getOrderTableNumber = (order) => {
+    if (order.tableNumber) return Number(order.tableNumber)
+    if (order.table_number) return Number(order.table_number)
+    const parsed = parseInt(String(order.address || '').replace(/\D+/g, ''), 10)
+    return Number.isInteger(parsed) ? parsed : null
+  }
+
+  const sortedTables = tables
+    .slice()
+    .sort((a, b) => a.table_number - b.table_number)
+
+  const selectedFilterTable = sortedTables.find(
+    (table) => String(table.id) === selectedOrderTableFilter
+  )
+
+  const filteredOrders = orders.filter((order) => {
+    if (selectedOrderTableFilter === 'all') return true
+
+    const orderTableId = order.tableId ?? order.table_id ?? null
+    if (String(orderTableId) === selectedOrderTableFilter) return true
+
+    if (!selectedFilterTable) return false
+    return getOrderTableNumber(order) === selectedFilterTable.table_number
+  })
+
+  const activeOrdersByTable = sortedTables.reduce((acc, table) => {
+    const matchingOrders = orders.filter((order) => {
+      const orderTableId = order.tableId ?? order.table_id ?? null
+      const orderTableNumber = getOrderTableNumber(order)
+      const isSameTable =
+        String(orderTableId) === String(table.id) ||
+        orderTableNumber === table.table_number
+
+      return isSameTable &&
+        order.status !== 'delivered' &&
+        order.status !== 'cancelled'
+    })
+
+    acc[table.id] = matchingOrders
+    return acc
+  }, {})
 
   return (
     <>
@@ -221,7 +231,7 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
             onClick={() => {
               if (
                 confirm(
-                  '🗑️ XÓA TOÀN BỘ DỮ LIỆU GIẢ?\n\nBao gồm:\n- Orders\n- Products\n- News\n- Customers\n- Activities\n\n⚠️ Hành động này không thể hoàn tác!\n\n✅ Sau khi xóa, bạn sẽ dùng dữ liệu từ Backend.'
+                  'ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒÂ¢Ã¢â€šÂ¬Ã‹Å“ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â XÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œA TOÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬N BáuÃƒâ€¹Ã…â€œ DáuÃƒâ€šÃ‚Â® LIáuÃƒÂ¢Ã¢â€šÂ¬Ã‚Â U GIáảÃƒâ€šÃ‚Â¢?\n\nBao gáuÃƒÂ¢Ã¢â€šÂ¬Ã…â€œm:\n- Orders\n- Products\n- News\n- Customers\n- Activities\n\nÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã‚Â¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â Hành động này không tháuÃƒâ€  hoàn tác!\n\n✅ Sau khi xóa, báảÃƒâ€šÃ‚Â¡n sáảÃƒâ€šÃ‚Â½ dùng dữ liệu táuÃƒâ€šÃ‚Â« Backend.'
                 )
               ) {
                 // Xóa tất cả localStorage
@@ -237,7 +247,7 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
                 ]
                 keysToRemove.forEach((key) => localStorage.removeItem(key))
                 alert(
-                  '✅ Đã xóa tất cả dữ liệu giả!\n\n🚀 Giờ hệ thống sẽ dùng dữ liệu từ Backend.'
+                  '✅ ÃƒÆ’Ã¢â‚¬Å¾Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£ xóa tất cả dữ liệu giả!\n\n📢 GiáuÃƒâ€šÃ‚Â háuÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¡ thống sáảÃƒâ€šÃ‚Â½ dùng dữ liệu táuÃƒâ€šÃ‚Â« Backend.'
                 )
                 window.location.href = '/admin'
               }
@@ -267,7 +277,7 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
               e.target.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)'
             }}
           >
-            🗑️ Xóa dữ liệu test
+            ÃƒÆ’Ã‚Â°Ãƒâ€¦Ã‚Â¸ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒÂ¢Ã¢â€šÂ¬Ã‹Å“ÃƒÆ’Ã‚Â¯Ãƒâ€šÃ‚Â¸Ãƒâ€šÃ‚Â Xóa dữ liệu test
           </button>
         </div>
 
@@ -279,20 +289,20 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
                 <h3>{stats.totalOrders}</h3>
               </div>
               <div className="card">
-                <div>Doanh thu thực</div>
+                <div>Doanh thu thựcc</div>
                 <h3 style={{ color: '#4CAF50' }}>{(stats.displayRevenue || 0).toLocaleString('vi-VN')}đ</h3>
-                <small style={{ color: '#999' }}>Chỉ tính đơn đã giao</small>
+                <small style={{ color: '#999' }}>CháuÃƒÂ¢Ã¢â€šÂ¬Ã‚Â° tính đơn đÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£ giao</small>
               </div>
               <div className="card">
                 <div>Doanh thu lý thuyết</div>
                 <h3 style={{ color: '#6B4CE6' }}>{(stats.totalRevenue || 0).toLocaleString('vi-VN')}đ</h3>
-                <small style={{ color: '#999' }}>Bao gồm cả đơn đang xử lý</small>
+                <small style={{ color: '#999' }}>Bao gáuÃƒÂ¢Ã¢â€šÂ¬Ã…â€œm cả đơn đang xử lý</small>
               </div>
             </div>
 
             <div className="dashboard-sections" style={{ marginBottom: '30px' }}>
               <div className="dashboard-section chart-container" style={{ flex: 2 }}>
-                <h3>Biểu đồ Top món bán chạy</h3>
+                <h3>BiáuÃƒâ€ u đồ Top món bán cháảÃƒâ€šÃ‚Â¡y</h3>
                 <div style={{ width: '100%', height: 300 }}>
                   <ResponsiveContainer>
                     <BarChart data={stats.topProducts || []}>
@@ -337,7 +347,7 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
 
             <div className="dashboard-sections">
               <div className="dashboard-section">
-                <h3>Sản phẩm bán chạy (Top 5)</h3>
+                <h3>Sản phẩm bán cháảÃƒâ€šÃ‚Â¡y (Top 5)</h3>
                 <table className="table">
                   <thead>
                     <tr>
@@ -365,7 +375,7 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
               </div>
 
               <div className="dashboard-section">
-                <h3>Top khách hàng mua nhiều nhất</h3>
+                <h3>Top khách hàng mua nhiáuÃƒâ€šÃ‚Âu nhất</h3>
                 <table className="table">
                   <thead>
                     <tr>
@@ -387,7 +397,7 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
               </div>
 
               <div className="dashboard-section">
-                <h3>Thống kê theo thời gian</h3>
+                <h3>Thống kê theo tháuÃƒâ€šÃ‚Âi gian</h3>
                 <div className="time-stats">
                   {Object.entries(ordersByTime).map(([period, count]) => (
                     <div key={period} className="time-stat-card">
@@ -427,7 +437,7 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
             >
               <input
                 name="url"
-                placeholder="Ảnh (URL - tùy chọn)"
+                placeholder="ảnh (URL - tùy cháuÃƒâ€šÃ‚Ân)"
                 className="newsletter-input"
                 onChange={(e) => setPreviewImg(e.target.value)}
               />
@@ -513,7 +523,7 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
                 const role = f.role.value
 
                 if (!username || !email || !password) {
-                  alert('Vui lòng điền đầy đủ thông tin!')
+                  alert('Vui lòng điáuÃƒâ€šÃ‚Ân đầy đủ thông tin!')
                   return
                 }
 
@@ -531,7 +541,7 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
                   console.error('Error creating user:', error)
                   alert(
                     error.response?.data?.message ||
-                    'Có lỗi xảy ra khi tạo tài khoản'
+                    'Có láuÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Âi xảy ra khi tạo tài khoản'
                   )
                 }
               }}
@@ -580,7 +590,7 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
                     )
                   </p>
                   <p style={{ fontSize: '12px', color: '#999', marginTop: '8px' }}>
-                    ℹ️ Tài khoản admin được ẩn
+                    Tài khoản admin được ẩn
                   </p>
                 </div>
                 <table className="table">
@@ -930,7 +940,7 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
                   setNewsPreview('')
                 } catch (error) {
                   console.error('Add news error:', error)
-                  alert('❌ Lỗi: ' + (error.response?.data?.message || error.message))
+                  alert('Lỗi: ' + (error.response?.data?.message || error.message))
                 }
               }}
             >
@@ -1015,8 +1025,8 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
             <table className="table">
               <thead>
                 <tr>
-                  <th>Tiêu đề</th>
-                  <th>Ảnh</th>
+                  <th>Tiêu đáuÃƒâ€šÃ‚Â</th>
+                  <th>ảnh</th>
                   <th>Mô tả</th>
                   <th></th>
                 </tr>
@@ -1161,7 +1171,7 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
                             }
                             style={{ marginLeft: 8 }}
                           >
-                            {n.pinned ? 'Bỏ ghim' : 'Ghim'}
+                            {n.pinned ? 'BáuÃƒâ€šÃ‚Â ghim' : 'Ghim'}
                           </button>
                           <button
                             className="btn secondary"
@@ -1228,6 +1238,153 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
             </div>
           </div>
         )}
+        {tab === 'tables' && (
+          <div className="dashboard-section">
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '20px',
+              }}
+            >
+              <div>
+                <h3>Trạng thái bàn</h3>
+                <p style={{ margin: '6px 0 0', color: '#64748b' }}>
+                  Tự động cập nhật theo đơn hàng.
+                </p>
+              </div>
+              <button
+                className="btn secondary"
+                onClick={loadTables}
+                style={{ fontSize: '13px', padding: '8px 16px' }}
+              >
+                Làm mới
+              </button>
+            </div>
+
+            <div className="table-status-grid">
+              <div className="table-status-card">
+                <div className="table-status-value">{tableStats.total}</div>
+                <div className="table-status-label">Tổng bàn</div>
+              </div>
+              <div className="table-status-card available">
+                <div className="table-status-value">{tableStats.available}</div>
+                <div className="table-status-label">Bàn trống</div>
+              </div>
+              <div className="table-status-card occupied">
+                <div className="table-status-value">{tableStats.occupied}</div>
+                <div className="table-status-label">Đang có khách</div>
+              </div>
+              <div className="table-status-card inactive">
+                <div className="table-status-value">{tableStats.inactive}</div>
+                <div className="table-status-label">Tạm khóa</div>
+              </div>
+            </div>
+
+            {loadingTables ? (
+              <div style={{ textAlign: 'center', padding: '20px' }}>
+                <p>Đang tải danh sách bàn...</p>
+              </div>
+            ) : (
+              <>
+                <div className="table-map">
+                  {sortedTables.length === 0 ? (
+                    <div className="table-map-empty">Chưa có dữ liệu bàn</div>
+                  ) : (
+                    sortedTables.map((table) => {
+                      const activeOrders = activeOrdersByTable[table.id] || []
+                      return (
+                        <div
+                          key={table.id}
+                          className={`table-map-card ${table.status}`}
+                        >
+                          <div className="table-map-top">
+                            <span className="table-map-number">
+                              Bàn {table.table_number}
+                            </span>
+                            <span className={`table-state-badge ${table.status}`}>
+                              {getTableStatusText(table.status)}
+                            </span>
+                          </div>
+                          <div className="table-map-body">
+                            <div className="table-map-seat">
+                              <div className="table-map-seat-inner">
+                                {table.table_number}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="table-map-meta">
+                            {activeOrders.length > 0 ? (
+                              <>
+                                <strong>{activeOrders.length}</strong> đơn hàng đang mở
+                              </>
+                            ) : table.status === 'available' ? (
+                              'Sẵn sàng nhận khách'
+                            ) : table.status === 'inactive' ? (
+                              'Tạm ẩn khỏi hệ thống đặt bàn'
+                            ) : (
+                              'Không có đơn hàng đang mở'
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Số bàn</th>
+                      <th>Trạng thái</th>
+                      <th>Đơn hàng đang mở</th>
+                      <th>Ghi chú</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedTables.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan="5"
+                          style={{ textAlign: 'center', padding: '20px' }}
+                        >
+                          Chưa có dữ liệu bàn
+                        </td>
+                      </tr>
+                    ) : (
+                      sortedTables.map((table) => {
+                        const activeOrders = activeOrdersByTable[table.id] || []
+                        return (
+                          <tr key={table.id}>
+                            <td>{table.id}</td>
+                            <td>Bàn {table.table_number}</td>
+                            <td>
+                              <span className={`table-state-badge ${table.status}`}>
+                                {getTableStatusText(table.status)}
+                              </span>
+                            </td>
+                            <td>{activeOrders.length}</td>
+                            <td>
+                              {table.status === 'occupied'
+                                ? 'Bàn này đang được khóa bởi đơn hàng đang mở'
+                                : table.status === 'available'
+                                  ? 'Khách có thể chọn bàn này'
+                                  : table.status === 'inactive'
+                                    ? 'Không hiển thị cho khách đặt'
+                                    : 'Trạng thái đặc biệt'}
+                            </td>
+                          </tr>
+                        )
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </>
+            )}
+          </div>
+        )}
         {tab === 'orders' && (
           <div className="dashboard-section">
             <div
@@ -1253,34 +1410,53 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
                 }}
                 style={{ fontSize: '13px', padding: '8px 16px' }}
               >
-                🗑️ Xóa tất cả orders
+                🔄 Xóa tất cả đơn hàng
               </button>
+            </div>
+            <div className="orders-filter-bar">
+              <label className="orders-filter-label" htmlFor="order-table-filter">
+                Lọc theo bàn:
+              </label>
+              <select
+                id="order-table-filter"
+                className="orders-filter-select"
+                value={selectedOrderTableFilter}
+                onChange={(event) => setSelectedOrderTableFilter(event.target.value)}
+              >
+                <option value="all">Tất cả bàn</option>
+                {sortedTables.map((table) => (
+                  <option key={table.id} value={table.id}>
+                    Bàn {table.table_number}
+                  </option>
+                ))}
+              </select>
+              <div className="orders-filter-count">
+                {filteredOrders.length} don
+              </div>
             </div>
             <table className="table">
               <thead>
                 <tr>
                   <th>Thời gian</th>
                   <th>Khách hàng</th>
+                  <th>Ban</th>
                   <th>Địa chỉ</th>
                   <th>Phương thức</th>
                   <th>Trạng thái</th>
-                  <th>Tổng tiền</th>
+                  <th>Tổng tiáuÃƒâ€šÃ‚Ân</th>
                   <th></th>
                 </tr>
               </thead>
               <tbody>
-                {orders.map((o) => (
+                {filteredOrders.map((o) => (
                   <tr key={o.id}>
                     <td>{new Date(o.createdAt).toLocaleString('vi-VN')}</td>
                     <td>{o.customerName}</td>
+                    <td>{getOrderTableNumber(o) ? 'Ban ' + getOrderTableNumber(o) : 'Mang ve'}</td>
                     <td>{o.address || 'Không có'}</td>
                     <td>
-                      <span className={`payment-badge ${o.paymentMethod}`}>
-                        {o.paymentMethod === 'vnpay'
-                          ? 'VNPay'
-                          : o.paymentMethod === 'mono'
-                            ? 'Mono'
-                            : 'Trực tiếp'}
+                      <span className={`payment-badge ${getOrderPayment(o)?.method || o.paymentMethod}`}>
+                        {getPaymentMethodName(getOrderPayment(o)?.method || o.paymentMethod)}
                       </span>
                     </td>
                     <td>
@@ -1322,184 +1498,6 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
             </table>
           </div>
         )}
-        {tab === 'payments' && (
-          <div className="dashboard-section">
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '16px',
-              }}
-            >
-              <h3>Quản lý thanh toán</h3>
-              <button
-                className="btn secondary"
-                onClick={() => {
-                  localStorage.removeItem('payments')
-                  loadPayments()
-                }}
-                style={{ fontSize: '14px', padding: '8px 16px' }}
-              >
-                🔄 Làm mới
-              </button>
-            </div>
-            {loadingPayments ? (
-              <div style={{ textAlign: 'center', padding: '20px' }}>
-                <p>Đang tải dữ liệu...</p>
-              </div>
-            ) : (
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Order ID</th>
-                    <th>Khách hàng</th>
-                    <th>Phương thức</th>
-                    <th>Số tiền</th>
-                    <th>Trạng thái</th>
-                    <th>Ngày tạo</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {payments.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan="8"
-                        style={{ textAlign: 'center', padding: '20px' }}
-                      >
-                        Chưa có dữ liệu thanh toán
-                      </td>
-                    </tr>
-                  ) : (
-                    payments.map((payment) => (
-                      <tr key={payment.id}>
-                        <td>{payment.id}</td>
-                        <td>
-                          <span
-                            style={{
-                              color: '#6B4CE6',
-                              cursor: 'pointer',
-                              textDecoration: 'underline',
-                            }}
-                            onClick={() => {
-                              // payment.order_id là index (1, 2, 3...), tìm order theo index
-                              const allOrders = JSON.parse(
-                                localStorage.getItem('orders') || '[]'
-                              )
-                              const order = allOrders[payment.order_id - 1] // index bắt đầu từ 0
-
-                              if (order) {
-                                setDetailOrder(order)
-                              } else {
-                                alert(
-                                  'Không tìm thấy đơn hàng #' + payment.order_id
-                                )
-                              }
-                            }}
-                          >
-                            #{payment.order_id}
-                          </span>
-                        </td>
-                        <td>{getCustomerName(payment)}</td>
-                        <td>
-                          <span className={`payment-badge ${payment.method}`}>
-                            {getPaymentMethodName(payment.method)}
-                          </span>
-                        </td>
-                        <td>
-                          {Math.round(payment.amount || 0).toLocaleString(
-                            'vi-VN'
-                          )}
-                          đ
-                        </td>
-                        <td>
-                          <span
-                            className={`status-badge ${payment.status}`}
-                            style={{
-                              backgroundColor:
-                                payment.status === 'success' ||
-                                  payment.status === 'completed'
-                                  ? '#4CAF50'
-                                  : payment.status === 'failed'
-                                    ? '#f44336'
-                                    : '#FFA726',
-                              color: 'white',
-                              padding: '4px 12px',
-                              borderRadius: '12px',
-                              fontSize: '12px',
-                            }}
-                          >
-                            {getPaymentStatusText(payment.status)}
-                          </span>
-                        </td>
-                        <td>
-                          {formatDate(payment.createdAt || payment.created_at)}
-                        </td>
-                        <td>
-                          {payment.status === 'pending' && (
-                            <>
-                              <button
-                                className="btn"
-                                style={{
-                                  marginRight: 8,
-                                  fontSize: '12px',
-                                  padding: '4px 12px',
-                                }}
-                                onClick={async () => {
-                                  try {
-                                    await paymentService.update(payment.id, {
-                                      status: 'success',
-                                    })
-                                    updatePaymentStatus(payment.id, 'success')
-                                    alert('Đã cập nhật trạng thái thành công!')
-                                  } catch (error) {
-                                    console.error(
-                                      'Error updating payment:',
-                                      error
-                                    )
-                                    alert('Có lỗi xảy ra khi cập nhật')
-                                  }
-                                }}
-                              >
-                                Xác nhận
-                              </button>
-                              <button
-                                className="btn secondary"
-                                style={{
-                                  fontSize: '12px',
-                                  padding: '4px 12px',
-                                }}
-                                onClick={async () => {
-                                  try {
-                                    await paymentService.update(payment.id, {
-                                      status: 'failed',
-                                    })
-                                    updatePaymentStatus(payment.id, 'failed')
-                                    alert('Đã cập nhật trạng thái thất bại!')
-                                  } catch (error) {
-                                    console.error(
-                                      'Error updating payment:',
-                                      error
-                                    )
-                                    alert('Có lỗi xảy ra khi cập nhật')
-                                  }
-                                }}
-                              >
-                                Từ chối
-                              </button>
-                            </>
-                          )}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            )}
-          </div>
-        )}
         {detailOrder && (
           <div className="modal-backdrop" onClick={() => setDetailOrder(null)}>
             <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -1522,12 +1520,15 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
                     {new Date(detailOrder.createdAt).toLocaleString('vi-VN')}
                   </div>
                   <div>
+                    <strong>Bàn:</strong>{' '} {getOrderTableNumber(detailOrder) ? 'Ban ' + getOrderTableNumber(detailOrder) : 'Mang ve'}
+                  </div>
+                  <div>
                     <strong>Địa chỉ:</strong>{' '}
                     {detailOrder.address || 'Không có'}
                   </div>
                   <div>
                     <strong>Phương thức:</strong>{' '}
-                    {detailOrder.paymentMethod === 'vnpay' ? 'VNPay' : 'Mono'}
+                    {getPaymentMethodName(getOrderPayment(detailOrder)?.method || detailOrder.paymentMethod)}
                   </div>
                 </div>
                 <div className="order-items">
@@ -1544,7 +1545,7 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
                         </div>
                         <div className="order-item-qty">x{it.quantity}</div>
                         <div className="order-item-price">
-                          {(price * it.quantity).toLocaleString('vi-VN')}₫
+                          {(price * it.quantity).toLocaleString('vi-VN')}đ
                         </div>
                       </div>
                     )
@@ -1552,7 +1553,7 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
                 </div>
                 <div className="order-total">
                   <strong>Tổng:</strong>{' '}
-                  {detailOrder.total.toLocaleString('vi-VN')}₫
+                  {detailOrder.total.toLocaleString('vi-VN')}đ
                 </div>
               </div>
             </div>
@@ -1562,3 +1563,4 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
     </>
   )
 }
+

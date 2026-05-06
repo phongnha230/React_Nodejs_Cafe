@@ -4,6 +4,7 @@
  */
 
 const sequelize = require('../config/database');
+const { Op } = require('sequelize');
 const Order = require('../models/order');
 const OrderItem = require('../models/orderItem');
 const Payment = require('../models/payment');
@@ -14,6 +15,32 @@ const { calculateSubtotal } = require('../utils/priceCalculator');
 const logger = require('../config/logger');
 
 class OrderService {
+    isTerminalStatus(status) {
+        return [ORDER_STATUS.DELIVERED, ORDER_STATUS.CANCELLED].includes(status);
+    }
+
+    async syncTableOccupancy(tableId, transaction = null) {
+        if (!tableId) return;
+
+        const activeOrders = await Order.count({
+            where: {
+                table_id: tableId,
+                status: {
+                    [Op.notIn]: [ORDER_STATUS.DELIVERED, ORDER_STATUS.CANCELLED]
+                }
+            },
+            transaction
+        });
+
+        await Table.update(
+            { status: activeOrders > 0 ? 'occupied' : 'available' },
+            {
+                where: { id: tableId },
+                transaction
+            }
+        );
+    }
+
     /**
      * Create new order
      * @param {number} userId - User ID
@@ -65,6 +92,10 @@ class OrderService {
             throw new Error(`Table ${resolvedTable.table_number} is inactive`);
         }
 
+        if (resolvedTable && !['available', 'occupied'].includes(resolvedTable.status)) {
+            throw new Error(`Table ${resolvedTable.table_number} is not available for ordering`);
+        }
+
         for (const item of items) {
             const product = productMap[item.product_id];
             
@@ -114,6 +145,10 @@ class OrderService {
 
             // Create order items
             await OrderItem.bulkCreate(orderItems, { transaction });
+
+            if (resolvedTable) {
+                await this.syncTableOccupancy(resolvedTable.id, transaction);
+            }
 
             // Commit transaction
             await transaction.commit();
@@ -241,8 +276,44 @@ class OrderService {
             throw new Error(`Cannot transition from ${currentStatus} to ${newStatus}`);
         }
 
-        // Update status
-        await order.update({ status: newStatus });
+        const transaction = await sequelize.transaction();
+
+        try {
+            await order.update({ status: newStatus }, { transaction });
+
+            const payment = await Payment.findOne({
+                where: { order_id: order.id },
+                transaction
+            });
+
+            if (newStatus === ORDER_STATUS.DELIVERED) {
+                if (payment) {
+                    if (!['completed', 'success'].includes(payment.status)) {
+                        await payment.update({ status: 'completed' }, { transaction });
+                    }
+                } else {
+                    await Payment.create({
+                        order_id: order.id,
+                        amount: parseFloat(order.total_amount),
+                        method: 'cash',
+                        status: 'completed'
+                    }, { transaction });
+                }
+            }
+
+            if (newStatus === ORDER_STATUS.CANCELLED && payment && payment.status === 'pending') {
+                await payment.update({ status: 'failed' }, { transaction });
+            }
+
+            if (order.table_id && this.isTerminalStatus(newStatus)) {
+                await this.syncTableOccupancy(order.table_id, transaction);
+            }
+
+            await transaction.commit();
+        } catch (error) {
+            await transaction.rollback();
+            throw error;
+        }
 
         logger.info('Order status updated', {
             orderId,
@@ -273,8 +344,20 @@ class OrderService {
             throw new Error('Order is already cancelled');
         }
 
-        // Update to cancelled
-        await order.update({ status: ORDER_STATUS.CANCELLED });
+        const transaction = await sequelize.transaction();
+
+        try {
+            await order.update({ status: ORDER_STATUS.CANCELLED }, { transaction });
+
+            if (order.table_id) {
+                await this.syncTableOccupancy(order.table_id, transaction);
+            }
+
+            await transaction.commit();
+        } catch (error) {
+            await transaction.rollback();
+            throw error;
+        }
 
         logger.info('Order cancelled', { orderId, userId });
 

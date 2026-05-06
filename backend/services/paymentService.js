@@ -17,7 +17,6 @@ class PaymentService {
     async createPayment(paymentData) {
         const { order_id, amount, method = PAYMENT_METHODS.CASH, status = 'pending', transaction_id } = paymentData;
 
-        // Validation
         if (!order_id || typeof amount !== 'number') {
             throw new Error('Order ID and numeric amount are required');
         }
@@ -26,24 +25,20 @@ class PaymentService {
             throw new Error('Amount must be greater than 0');
         }
 
-        // Verify order exists
         const order = await Order.findByPk(order_id);
         if (!order) {
             throw new Error('Order not found');
         }
 
-        // Validate payment method
         if (!Object.values(PAYMENT_METHODS).includes(method)) {
             throw new Error('Invalid payment method');
         }
 
-        // Check if payment already exists for this order
         const existingPayment = await Payment.findOne({ where: { order_id } });
         if (existingPayment) {
             throw new Error('Payment already exists for this order');
         }
 
-        // Create payment
         const payment = await Payment.create({
             order_id,
             amount,
@@ -62,11 +57,6 @@ class PaymentService {
         return payment;
     }
 
-    /**
-     * Get all payments
-     * @param {object} options - Query options (orderId, status, page, limit)
-     * @returns {Promise<object>} Payments list with pagination
-     */
     async getAllPayments(options = {}) {
         const { orderId, status, page = 1, limit = 10 } = options;
         const offset = (page - 1) * limit;
@@ -98,11 +88,6 @@ class PaymentService {
         };
     }
 
-    /**
-     * Get payment by ID
-     * @param {number} paymentId - Payment ID
-     * @returns {Promise<object>} Payment object
-     */
     async getPaymentById(paymentId) {
         const payment = await Payment.findByPk(paymentId, {
             include: [{
@@ -118,12 +103,6 @@ class PaymentService {
         return payment;
     }
 
-    /**
-     * Update payment
-     * @param {number} paymentId - Payment ID
-     * @param {object} updateData - Data to update
-     * @returns {Promise<object>} Updated payment
-     */
     async updatePayment(paymentId, updateData) {
         const payment = await Payment.findByPk(paymentId);
 
@@ -133,12 +112,10 @@ class PaymentService {
 
         const { amount, method, status, transaction_id } = updateData;
 
-        // Validate amount if provided
         if (typeof amount === 'number' && amount <= 0) {
             throw new Error('Amount must be greater than 0');
         }
 
-        // Validate payment method if provided
         if (method && !Object.values(PAYMENT_METHODS).includes(method)) {
             throw new Error('Invalid payment method');
         }
@@ -155,12 +132,6 @@ class PaymentService {
         return payment;
     }
 
-    /**
-     * Update payment status
-     * @param {number} paymentId - Payment ID
-     * @param {string} status - New status
-     * @returns {Promise<object>} Updated payment
-     */
     async updatePaymentStatus(paymentId, status) {
         const payment = await Payment.findByPk(paymentId);
 
@@ -184,11 +155,6 @@ class PaymentService {
         return payment;
     }
 
-    /**
-     * Delete payment
-     * @param {number} paymentId - Payment ID
-     * @returns {Promise<boolean>} Success status
-     */
     async deletePayment(paymentId) {
         const payment = await Payment.findByPk(paymentId);
 
@@ -196,7 +162,6 @@ class PaymentService {
             throw new Error('Payment not found');
         }
 
-        // Don't allow deleting completed payments
         if (payment.status === 'completed' || payment.status === 'success') {
             throw new Error('Cannot delete completed payment');
         }
@@ -208,24 +173,12 @@ class PaymentService {
         return true;
     }
 
-    /**
-     * Get payment by order ID
-     * @param {number} orderId - Order ID
-     * @returns {Promise<object>} Payment object
-     */
     async getPaymentByOrderId(orderId) {
-        const payment = await Payment.findOne({
+        return await Payment.findOne({
             where: { order_id: orderId }
         });
-
-        return payment;
     }
 
-    /**
-     * Get payment statistics
-     * @param {object} filters - Filter options (startDate, endDate)
-     * @returns {Promise<object>} Payment statistics
-     */
     async getPaymentStatistics(filters = {}) {
         const { startDate, endDate } = filters;
 
@@ -246,7 +199,6 @@ class PaymentService {
             methodBreakdown: {}
         };
 
-        // Calculate breakdowns
         payments.forEach(payment => {
             stats.statusBreakdown[payment.status] = (stats.statusBreakdown[payment.status] || 0) + 1;
             stats.methodBreakdown[payment.method] = (stats.methodBreakdown[payment.method] || 0) + 1;

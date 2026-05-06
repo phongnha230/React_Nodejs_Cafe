@@ -1,6 +1,6 @@
 /**
  * Payment Methods Constants
- * ⚠️ MUST SYNC with Frontend constants
+ * Must stay in sync with frontend usage.
  */
 
 module.exports = {

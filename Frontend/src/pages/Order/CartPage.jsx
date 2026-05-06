@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useCartStore } from '../../stores/cartStore.js';
 import { useAuth } from '../../hooks/useAuth.js';
 import { useOrderStore } from '../../stores/orderStore.js';
@@ -17,7 +17,7 @@ export function CartPage() {
   const remove = useCartStore((state) => state.remove);
   const clear = useCartStore((state) => state.clear);
   const { customerName, isCustomer } = useAuth();
-  const displayName = customerName ?? 'Khach vang lai';
+  const displayName = customerName ?? 'Khách vãng lai';
   const place = useOrderStore((state) => state.place);
 
   const [showPayment, setShowPayment] = useState(false);
@@ -27,7 +27,7 @@ export function CartPage() {
   const [selectedTableId, setSelectedTableId] = useState('');
 
   const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
-  const availableTables = tables.filter((table) => table.status !== 'inactive');
+  const availableTables = tables.filter((table) => table.status === 'available');
   const selectedTable = availableTables.find((table) => String(table.id) === String(selectedTableId));
 
   useEffect(() => {
@@ -44,7 +44,7 @@ export function CartPage() {
 
         setTables(apiTables);
         if (apiTables.length > 0) {
-          const firstAvailableTable = apiTables.find((table) => table.status !== 'inactive');
+          const firstAvailableTable = apiTables.find((table) => table.status === 'available');
           if (firstAvailableTable) {
             setSelectedTableId((current) => current || String(firstAvailableTable.id));
           }
@@ -68,7 +68,7 @@ export function CartPage() {
   const checkout = () => {
     if (items.length === 0) return;
     if (availableTables.length === 0) {
-      alert('Chua co ban nao trong he thong');
+      alert('Chưa có bàn nào trong hệ thống');
       return;
     }
     setShowPayment(true);
@@ -76,14 +76,14 @@ export function CartPage() {
 
   const confirmPayment = async () => {
     if (!selectedTable) {
-      alert('Vui long chon ban');
+      alert('Vui lòng chọn bàn');
       return;
     }
 
-    const tableLabel = `Ban ${selectedTable.table_number}`;
+    const tableLabel = `Bàn ${selectedTable.table_number}`;
     const order = {
       id: genId(),
-      customerName: isCustomer ? displayName : 'Khach vang lai',
+      customerName: isCustomer ? displayName : 'Khách vãng lai',
       items: items.map((item) => ({
         productId: item.productId,
         quantity: item.quantity,
@@ -122,41 +122,41 @@ export function CartPage() {
             (item) =>
               `\n${item.product.name} x${item.quantity} - ${(
                 item.product.price * item.quantity
-              ).toLocaleString('vi-VN')}d`
+              ).toLocaleString('vi-VN')}đ`
           )
           .join('');
 
-        const html = `<!doctype html><html><head><meta charset="utf-8"><title>Hoa don</title></head><body>
-          <pre style="font:14px/1.6 system-ui, -apple-system, Segoe UI, Roboto">CAFE APP\n------------------------------\nKhach: ${
+        const html = `<!doctype html><html><head><meta charset="utf-8"><title>Hóa đơn</title></head><body>
+          <pre style="font:14px/1.6 system-ui, -apple-system, Segoe UI, Roboto">CAFE APP\n------------------------------\nKhách: ${
             order.customerName
-          }\nBan: ${order.address}\nThoi gian: ${new Date(order.createdAt).toLocaleString(
+          }\nBàn: ${order.address}\nThời gian: ${new Date(order.createdAt).toLocaleString(
             'vi-VN'
-          )}\n\nMat hang:${lines}\n\nTong tien: ${total.toLocaleString(
+          )}\n\nMặt hàng:${lines}\n\nTổng tiền: ${total.toLocaleString(
             'vi-VN'
-          )}d\nPhuong thuc: Truc tiep\n\nCam on quy khach!</pre>
+          )}đ\nPhương thức: Trực tiếp\n\nCảm ơn quý khách!</pre>
           <script>window.onload=()=>{window.print(); setTimeout(()=>window.close(), 300);}</script>
         </body></html>`;
 
         popup.document.write(html);
         popup.document.close();
       } else {
-        alert('Thanh toan online da ghi nhan!');
+        alert('Thanh toán online đã ghi nhận!');
       }
     } catch (error) {
       console.error('Order creation failed:', error);
-      alert('Dat hang that bai: ' + (error.response?.data?.message || error.message));
+      alert('Đặt hàng thất bại: ' + (error.response?.data?.message || error.message));
     }
   };
 
   if (showPayment) {
     return (
       <div className="container">
-        <h2>Thanh toan</h2>
+        <h2>Thanh toán</h2>
         <div className="payment-section">
           <div className="payment-info">
-            <h3>Tong tien: {total.toLocaleString('vi-VN')}d</h3>
+            <h3>Tổng tiền: {total.toLocaleString('vi-VN')}đ</h3>
             <div className="order-summary">
-              <h4>Don hang cua ban</h4>
+              <h4>Đơn hàng của bạn</h4>
               <div className="order-items">
                 {items.map((item) => (
                   <div key={item.productId} className="order-item">
@@ -166,18 +166,18 @@ export function CartPage() {
                     </div>
                     <div className="order-item-qty">x{item.quantity}</div>
                     <div className="order-item-price">
-                      {(item.product.price * item.quantity).toLocaleString('vi-VN')}d
+                      {(item.product.price * item.quantity).toLocaleString('vi-VN')}đ
                     </div>
                   </div>
                 ))}
               </div>
               <div className="order-total">
-                <strong>Tam tinh:</strong> {total.toLocaleString('vi-VN')}d
+                <strong>Tạm tính:</strong> {total.toLocaleString('vi-VN')}đ
               </div>
             </div>
 
             <div className="address-section">
-              <label className="address-label">Chon so ban:</label>
+              <label className="address-label">Chọn số bàn:</label>
               <select
                 className="address-input"
                 value={selectedTableId}
@@ -186,13 +186,13 @@ export function CartPage() {
               >
                 {availableTables.map((table) => (
                   <option key={table.id} value={table.id}>
-                    Ban {table.table_number}
+                    Bàn {table.table_number}
                   </option>
                 ))}
               </select>
             </div>
 
-            <p>Chon phuong thuc thanh toan:</p>
+            <p>Chọn phương thức thanh toán:</p>
           </div>
           <div className="payment-options">
             <label className="payment-option">
@@ -211,7 +211,7 @@ export function CartPage() {
                 }}
               >
                 <div className="payment-logo">$$</div>
-                <span>Truc tiep</span>
+                <span>Trực tiếp</span>
               </div>
             </label>
             <label className="payment-option">
@@ -234,7 +234,7 @@ export function CartPage() {
               <div className="qr-code">
                 {selectedPayment === 'vnpay' ? 'VNPay QR' : 'QR Code'}
               </div>
-              <p>Quet ma QR de thanh toan</p>
+              <p>Quét mã QR để thanh toán</p>
             </div>
           )}
 
@@ -243,14 +243,14 @@ export function CartPage() {
               className="btn secondary"
               onClick={() => setShowPayment(false)}
             >
-              Quay lai
+              Quay lại
             </button>
             <button
               className="btn"
               onClick={confirmPayment}
               disabled={tablesLoading || !selectedTable}
             >
-              Xac nhan thanh toan
+              Xác nhận thanh toán
             </button>
           </div>
         </div>
@@ -260,10 +260,10 @@ export function CartPage() {
 
   return (
     <div className="container">
-      <h2>Gio hang</h2>
+      <h2>Giỏ hàng</h2>
       {items.length === 0 ? (
         <div className="empty-cart">
-          <p>Chua co san pham nao trong gio hang.</p>
+          <p>Chưa có sản phẩm nào trong giỏ hàng.</p>
         </div>
       ) : (
         <>
@@ -277,7 +277,7 @@ export function CartPage() {
                 />
                 <div className="cart-item-info">
                   <div className="cart-item-price">
-                    {item.product.price.toLocaleString('vi-VN')}d
+                    {item.product.price.toLocaleString('vi-VN')}đ
                   </div>
                   <div className="quantity-controls">
                     <button
@@ -303,7 +303,7 @@ export function CartPage() {
                     }
                   }}
                 >
-                  Xoa
+                  Xóa
                 </button>
               </div>
             ))}
@@ -311,7 +311,7 @@ export function CartPage() {
 
           <div className="cart-summary">
             <div className="summary-row">
-              <label>So luong:</label>
+              <label>Số lượng:</label>
               <input
                 type="text"
                 value={totalQuantity}
@@ -320,15 +320,15 @@ export function CartPage() {
               />
             </div>
             <div className="summary-row">
-              <label>Tong tien:</label>
+              <label>Tổng tiền:</label>
               <div className="total-amount">
-                {total.toLocaleString('vi-VN')}d
+                {total.toLocaleString('vi-VN')}đ
               </div>
             </div>
           </div>
 
           <button className="checkout-btn" onClick={checkout}>
-            Thanh toan
+            Thanh toán
           </button>
         </>
       )}

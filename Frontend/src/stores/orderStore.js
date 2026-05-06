@@ -9,9 +9,14 @@ const toAddress = (order) => {
   return order?.address || (tableNumber ? `Ban ${tableNumber}` : 'Mang ve');
 };
 
+const getPrimaryPayment = (order) => (
+  Array.isArray(order?.payments) && order.payments.length > 0
+    ? order.payments[0]
+    : null
+);
+
 export const useOrderStore = create((set, get) => ({
   orders: initial,
-  serverStats: null,
   loading: false,
   error: null,
 
@@ -22,20 +27,25 @@ export const useOrderStore = create((set, get) => ({
       const payload = response.data;
       const apiOrders = Array.isArray(payload) ? payload : (payload?.data || []);
 
-      const normalized = apiOrders.map((order) => ({
-        ...order,
-        total: Number(order.total ?? order.total_amount ?? 0) || 0,
-        createdAt: order.createdAt || order.created_at,
-        tableId: order.tableId ?? order.table_id ?? order.table?.id ?? null,
-        tableNumber: order.tableNumber ?? order.table_number ?? order.table?.table_number ?? null,
-        address: toAddress(order),
-        paymentMethod: order.paymentMethod || 'direct',
-        items: Array.isArray(order.items) ? order.items.map((item) => ({
-          ...item,
-          productId: item.productId ?? item.product_id,
-        })) : [],
-        status: order.status || 'pending',
-      }));
+      const normalized = apiOrders.map((order) => {
+        const primaryPayment = getPrimaryPayment(order);
+
+        return {
+          ...order,
+          total: Number(order.total ?? order.total_amount ?? 0) || 0,
+          createdAt: order.createdAt || order.created_at,
+          tableId: order.tableId ?? order.table_id ?? order.table?.id ?? null,
+          tableNumber: order.tableNumber ?? order.table_number ?? order.table?.table_number ?? null,
+          address: toAddress(order),
+          paymentMethod: primaryPayment?.method || order.paymentMethod || 'cash',
+          paymentStatus: primaryPayment?.status || order.paymentStatus || null,
+          items: Array.isArray(order.items) ? order.items.map((item) => ({
+            ...item,
+            productId: item.productId ?? item.product_id,
+          })) : [],
+          status: order.status || 'pending',
+        };
+      });
 
       if (normalized.length > 0) {
         set({ orders: normalized, loading: false });
@@ -77,7 +87,7 @@ export const useOrderStore = create((set, get) => ({
         items: order.items,
         total: createdOrder.total_amount,
         createdAt: createdOrder.created_at,
-        paymentMethod: order.paymentMethod,
+        paymentMethod: order.paymentMethod === 'direct' ? 'cash' : order.paymentMethod,
         tableId: createdOrder.table_id ?? order.tableId ?? null,
         tableNumber: createdOrder.table_number ?? order.tableNumber ?? null,
         address: order.address || toAddress(createdOrder),
@@ -101,41 +111,26 @@ export const useOrderStore = create((set, get) => ({
       await orderService.updateStatus(id, { status });
 
       const next = get().orders.map((order) => (
-        order.id === id ? { ...order, status } : order
+        order.id === id
+          ? {
+            ...order,
+            status,
+            paymentStatus: status === 'delivered'
+              ? (order.paymentStatus || 'completed')
+              : order.paymentStatus,
+          }
+          : order
       ));
       set({ orders: next });
       storage.set('orders', next);
     } catch (error) {
       console.error('Update order status failed:', error);
-      const next = get().orders.map((order) => (
-        order.id === id ? { ...order, status } : order
-      ));
-      set({ orders: next });
-      storage.set('orders', next);
-    }
-  },
-
-  async loadStatsFromAPI() {
-    try {
-      const response = await orderService.getStats();
-      set({ serverStats: response.data });
-      return response.data;
-    } catch (error) {
-      console.error('Load stats failed:', error);
+      throw error;
     }
   },
 
   stats() {
     const orders = get().orders;
-    const serverStats = get().serverStats;
-
-    if (serverStats) {
-      return {
-        ...serverStats,
-        displayRevenue: serverStats.realRevenue || 0
-      };
-    }
-
     const deliveredOrders = orders.filter((order) => order.status === 'delivered');
     const totalOrders = orders.length;
     const totalRevenue = deliveredOrders.reduce((sum, order) => sum + order.total, 0);

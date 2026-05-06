@@ -15,10 +15,10 @@ module.exports = {
 
 // Valid status transitions
 module.exports.VALID_TRANSITIONS = {
-    pending: ['confirmed', 'cancelled'],
-    confirmed: ['preparing', 'cancelled'],
+    pending: ['confirmed', 'ready', 'cancelled'],
+    confirmed: ['preparing', 'ready', 'cancelled'],
     preparing: ['ready', 'cancelled'],
-    ready: ['delivering', 'cancelled'],
+    ready: ['delivering', 'delivered', 'cancelled'],
     delivering: ['delivered', 'cancelled'],
     delivered: [],
     cancelled: []
