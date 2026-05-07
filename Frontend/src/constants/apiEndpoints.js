@@ -27,10 +27,12 @@ export const API_ENDPOINTS = {
     LIST: '/orders',
     DETAIL: (id) => `/orders/${id}`,
     CREATE: '/orders',
+    CREATE_GUEST: '/orders/guest',
     UPDATE_STATUS: (id) => `/orders/${id}/status`,
   },
   TABLES: {
     LIST: '/tables',
+    QR_LINKS: '/tables/qr-links',
     DETAIL: (id) => `/tables/${id}`,
   },
   PAYMENTS: {

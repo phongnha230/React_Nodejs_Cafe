@@ -15,6 +15,14 @@ const getPrimaryPayment = (order) => (
     : null
 );
 
+const getCustomerName = (order) => (
+  order?.customerName ||
+  order?.guest_name ||
+  order?.User?.name ||
+  order?.User?.username ||
+  'Khach QR'
+);
+
 export const useOrderStore = create((set, get) => ({
   orders: initial,
   loading: false,
@@ -32,6 +40,7 @@ export const useOrderStore = create((set, get) => ({
 
         return {
           ...order,
+          customerName: getCustomerName(order),
           total: Number(order.total ?? order.total_amount ?? 0) || 0,
           createdAt: order.createdAt || order.created_at,
           tableId: order.tableId ?? order.table_id ?? order.table?.id ?? null,
@@ -101,6 +110,56 @@ export const useOrderStore = create((set, get) => ({
       return createdOrder.id;
     } catch (error) {
       console.error('Create order failed:', error);
+      set({ error: error.message, loading: false });
+      throw error;
+    }
+  },
+
+  async placeGuest(order) {
+    set({ loading: true, error: null });
+    try {
+      const response = await orderService.createGuest({
+        guest_name: order.customerName,
+        payment_method: order.paymentMethod === 'direct' ? 'cash' : order.paymentMethod,
+        table_id: Number(order.tableId) || null,
+        table_number: Number(order.tableNumber) || null,
+        ts: Number(order.qrTimestamp) || null,
+        sig: order.qrSignature || null,
+        note: order.note || null,
+        items: order.items.map((item) => ({
+          product_id: Number(item.productId) || 0,
+          quantity: Number(item.quantity) || 1,
+          unit_price: Number(item.product?.price) || 0,
+        })),
+      });
+
+      const createdOrder = response.data?.data?.order ?? response.data?.order;
+      const guestName = response.data?.data?.guest_name || order.customerName || 'Khach QR';
+      if (!createdOrder) {
+        throw new Error('Invalid guest order response');
+      }
+
+      const formatted = {
+        id: createdOrder.id,
+        customerName: guestName,
+        items: order.items,
+        total: createdOrder.total_amount,
+        createdAt: createdOrder.created_at,
+        paymentMethod: order.paymentMethod === 'direct' ? 'cash' : order.paymentMethod,
+        paymentStatus: 'pending',
+        tableId: createdOrder.table_id ?? order.tableId ?? null,
+        tableNumber: createdOrder.table_number ?? order.tableNumber ?? null,
+        address: order.address || toAddress(createdOrder),
+        status: createdOrder.status,
+      };
+
+      const next = [formatted, ...get().orders];
+      set({ orders: next, loading: false });
+      storage.set('orders', next);
+
+      return createdOrder.id;
+    } catch (error) {
+      console.error('Create guest order failed:', error);
       set({ error: error.message, loading: false });
       throw error;
     }

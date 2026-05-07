@@ -4,6 +4,7 @@ import { useAuth } from '../../hooks/useAuth.js';
 import { useOrderStore } from '../../stores/orderStore.js';
 import paymentService from '../../services/paymentService.js';
 import tableService from '../../services/tableService.js';
+import { clearTableSession, getTableSession } from '../../utils/tableSession.js';
 
 const genId = () =>
   crypto?.randomUUID
@@ -17,18 +18,32 @@ export function CartPage() {
   const remove = useCartStore((state) => state.remove);
   const clear = useCartStore((state) => state.clear);
   const { customerName, isCustomer } = useAuth();
-  const displayName = customerName ?? 'Khách vãng lai';
+  const displayName = customerName ?? 'Khach vang lai';
   const place = useOrderStore((state) => state.place);
+  const placeGuest = useOrderStore((state) => state.placeGuest);
 
   const [showPayment, setShowPayment] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState('direct');
   const [tables, setTables] = useState([]);
   const [tablesLoading, setTablesLoading] = useState(false);
   const [selectedTableId, setSelectedTableId] = useState('');
+  const [guestName, setGuestName] = useState('');
+  const [qrError, setQrError] = useState('');
 
   const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
+  const qrTableSession = getTableSession();
+  const qrTableNumber = Number(qrTableSession?.tableNumber || 0);
+  const qrTimestamp = Number(qrTableSession?.ts || 0);
+  const qrSignature = qrTableSession?.sig || null;
   const availableTables = tables.filter((table) => table.status === 'available');
-  const selectedTable = availableTables.find((table) => String(table.id) === String(selectedTableId));
+  const qrMatchedTable = qrTableNumber > 0
+    ? tables.find((table) => Number(table.table_number) === qrTableNumber)
+    : null;
+  const isQrMode = Boolean(qrMatchedTable);
+  const selectableTables = isQrMode
+    ? tables.filter((table) => table.id === qrMatchedTable?.id)
+    : availableTables;
+  const selectedTable = selectableTables.find((table) => String(table.id) === String(selectedTableId));
 
   useEffect(() => {
     let mounted = true;
@@ -43,6 +58,20 @@ export function CartPage() {
         if (!mounted) return;
 
         setTables(apiTables);
+
+        if (qrTableNumber > 0) {
+          const matchedTable = apiTables.find((table) => Number(table.table_number) === qrTableNumber);
+          if (matchedTable && ['available', 'occupied'].includes(matchedTable.status)) {
+            setSelectedTableId(String(matchedTable.id));
+            setQrError('');
+          } else {
+            clearTableSession();
+            setQrError(`QR cua Ban ${qrTableNumber} hien khong con hop le hoac ban nay khong the nhan order.`);
+            alert(`Ban ${qrTableNumber} hien khong the nhan order QR.`);
+          }
+          return;
+        }
+
         if (apiTables.length > 0) {
           const firstAvailableTable = apiTables.find((table) => table.status === 'available');
           if (firstAvailableTable) {
@@ -63,27 +92,67 @@ export function CartPage() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [qrTableNumber]);
+
+  useEffect(() => {
+    if (!isCustomer) {
+      setSelectedPayment('direct');
+    }
+  }, [isCustomer]);
+
+  const getFriendlyGuestOrderError = (error) => {
+    const message = String(
+      error?.response?.data?.message ||
+      error?.response?.data?.errors ||
+      error?.message ||
+      ''
+    ).toLowerCase();
+
+    if (message.includes('expired')) {
+      return 'Ma QR nay da het han. Vui long quet lai ma QR tai ban de tiep tuc dat mon.';
+    }
+
+    if (
+      message.includes('signature') ||
+      message.includes('timestamp') ||
+      message.includes('invalid qr')
+    ) {
+      return 'Ma QR khong hop le hoac da bi thay doi. Vui long quet lai ma QR goc tai ban.';
+    }
+
+    if (message.includes('not available') || message.includes('inactive')) {
+      return 'Ban nay hien khong the nhan order. Vui long lien he nhan vien hoac quet lai ma QR khac.';
+    }
+
+    return error?.response?.data?.message || 'Dat hang that bai. Vui long thu lai.';
+  };
 
   const checkout = () => {
     if (items.length === 0) return;
-    if (availableTables.length === 0) {
-      alert('Chưa có bàn nào trong hệ thống');
+    if (!isQrMode && availableTables.length === 0) {
+      alert('Chua co ban nao trong he thong');
       return;
     }
+    setQrError('');
     setShowPayment(true);
   };
 
   const confirmPayment = async () => {
     if (!selectedTable) {
-      alert('Vui lòng chọn bàn');
+      alert('Vui long chon ban');
       return;
     }
 
-    const tableLabel = `Bàn ${selectedTable.table_number}`;
+    if (!isCustomer && (!Number.isInteger(qrTimestamp) || qrTimestamp <= 0 || !qrSignature)) {
+      setQrError('Ma QR nay khong day du thong tin xac thuc. Vui long quet lai ma QR tai ban.');
+      return;
+    }
+
+    const tableLabel = `Ban ${selectedTable.table_number}`;
+    const resolvedGuestName = String(guestName || '').trim() || 'Khach QR';
     const order = {
       id: genId(),
-      customerName: isCustomer ? displayName : 'Khách vãng lai',
+      customerName: isCustomer ? displayName : resolvedGuestName,
       items: items.map((item) => ({
         productId: item.productId,
         quantity: item.quantity,
@@ -94,26 +163,34 @@ export function CartPage() {
       paymentMethod: selectedPayment,
       tableId: selectedTable.id,
       tableNumber: selectedTable.table_number,
+      qrTimestamp,
+      qrSignature,
       address: tableLabel,
     };
 
     try {
-      const orderId = await place(order);
+      const orderId = isCustomer
+        ? await place(order)
+        : await placeGuest(order);
 
-      try {
-        await paymentService.create({
-          order_id: orderId,
-          amount: total,
-          method: selectedPayment === 'direct' ? 'cash' : selectedPayment,
-          status: 'completed',
-          transaction_id: selectedPayment !== 'direct' ? `TXN-${Date.now()}` : null,
-        });
-      } catch (error) {
-        console.error('Failed to create payment record:', error);
+      if (isCustomer) {
+        try {
+          await paymentService.create({
+            order_id: orderId,
+            amount: total,
+            method: selectedPayment === 'direct' ? 'cash' : selectedPayment,
+            status: 'completed',
+            transaction_id: selectedPayment !== 'direct' ? `TXN-${Date.now()}` : null,
+          });
+        } catch (error) {
+          console.error('Failed to create payment record:', error);
+        }
       }
 
       clear();
       setShowPayment(false);
+      setGuestName('');
+      setQrError('');
 
       if (selectedPayment === 'direct') {
         const popup = window.open('', '_blank');
@@ -122,41 +199,61 @@ export function CartPage() {
             (item) =>
               `\n${item.product.name} x${item.quantity} - ${(
                 item.product.price * item.quantity
-              ).toLocaleString('vi-VN')}đ`
+              ).toLocaleString('vi-VN')}d`
           )
           .join('');
 
-        const html = `<!doctype html><html><head><meta charset="utf-8"><title>Hóa đơn</title></head><body>
-          <pre style="font:14px/1.6 system-ui, -apple-system, Segoe UI, Roboto">CAFE APP\n------------------------------\nKhách: ${
+        const html = `<!doctype html><html><head><meta charset="utf-8"><title>Hoa don</title></head><body>
+          <pre style="font:14px/1.6 system-ui, -apple-system, Segoe UI, Roboto">CAFE APP\n------------------------------\nKhach: ${
             order.customerName
-          }\nBàn: ${order.address}\nThời gian: ${new Date(order.createdAt).toLocaleString(
+          }\nBan: ${order.address}\nThoi gian: ${new Date(order.createdAt).toLocaleString(
             'vi-VN'
-          )}\n\nMặt hàng:${lines}\n\nTổng tiền: ${total.toLocaleString(
+          )}\n\nMat hang:${lines}\n\nTong tien: ${total.toLocaleString(
             'vi-VN'
-          )}đ\nPhương thức: Trực tiếp\n\nCảm ơn quý khách!</pre>
+          )}d\nPhuong thuc: Truc tiep\n\nCam on quy khach!</pre>
           <script>window.onload=()=>{window.print(); setTimeout(()=>window.close(), 300);}</script>
         </body></html>`;
 
         popup.document.write(html);
         popup.document.close();
       } else {
-        alert('Thanh toán online đã ghi nhận!');
+        alert('Thanh toan online da ghi nhan!');
       }
     } catch (error) {
       console.error('Order creation failed:', error);
-      alert('Đặt hàng thất bại: ' + (error.response?.data?.message || error.message));
+      const friendlyError = getFriendlyGuestOrderError(error);
+      if (!isCustomer) {
+        setQrError(friendlyError);
+      }
+      alert('Dat hang that bai: ' + friendlyError);
     }
   };
 
   if (showPayment) {
     return (
       <div className="container">
-        <h2>Thanh toán</h2>
+        <h2>Thanh toan</h2>
         <div className="payment-section">
           <div className="payment-info">
-            <h3>Tổng tiền: {total.toLocaleString('vi-VN')}đ</h3>
+            <h3>Tong tien: {total.toLocaleString('vi-VN')}d</h3>
+            {qrError && (
+              <div
+                style={{
+                  marginBottom: '16px',
+                  padding: '12px 14px',
+                  borderRadius: '12px',
+                  background: '#fef2f2',
+                  border: '1px solid #fecaca',
+                  color: '#991b1b',
+                  fontSize: '14px',
+                  lineHeight: 1.5,
+                }}
+              >
+                <strong>QR order gap van de:</strong> {qrError}
+              </div>
+            )}
             <div className="order-summary">
-              <h4>Đơn hàng của bạn</h4>
+              <h4>Don hang cua ban</h4>
               <div className="order-items">
                 {items.map((item) => (
                   <div key={item.productId} className="order-item">
@@ -166,33 +263,50 @@ export function CartPage() {
                     </div>
                     <div className="order-item-qty">x{item.quantity}</div>
                     <div className="order-item-price">
-                      {(item.product.price * item.quantity).toLocaleString('vi-VN')}đ
+                      {(item.product.price * item.quantity).toLocaleString('vi-VN')}d
                     </div>
                   </div>
                 ))}
               </div>
               <div className="order-total">
-                <strong>Tạm tính:</strong> {total.toLocaleString('vi-VN')}đ
+                <strong>Tam tinh:</strong> {total.toLocaleString('vi-VN')}d
               </div>
             </div>
 
             <div className="address-section">
-              <label className="address-label">Chọn số bàn:</label>
+              <label className="address-label">Chon so ban:</label>
               <select
                 className="address-input"
                 value={selectedTableId}
                 onChange={(event) => setSelectedTableId(event.target.value)}
-                disabled={tablesLoading || availableTables.length === 0}
+                disabled={tablesLoading || selectableTables.length === 0 || isQrMode}
               >
-                {availableTables.map((table) => (
+                {selectableTables.map((table) => (
                   <option key={table.id} value={table.id}>
-                    Bàn {table.table_number}
+                    Ban {table.table_number}
                   </option>
                 ))}
               </select>
+              {isQrMode && selectedTable && (
+                <p style={{ marginTop: '8px', color: '#0f766e', fontSize: '14px' }}>
+                  QR dang khoa vao Ban {selectedTable.table_number}. Khach khong can chon lai ban.
+                </p>
+              )}
             </div>
 
-            <p>Chọn phương thức thanh toán:</p>
+            {!isCustomer && (
+              <div className="address-section">
+                <label className="address-label">Ten khach:</label>
+                <input
+                  className="address-input"
+                  value={guestName}
+                  onChange={(event) => setGuestName(event.target.value)}
+                  placeholder="Vi du: Anh Nam"
+                />
+              </div>
+            )}
+
+            <p>Chon phuong thuc thanh toan:</p>
           </div>
           <div className="payment-options">
             <label className="payment-option">
@@ -211,7 +325,7 @@ export function CartPage() {
                 }}
               >
                 <div className="payment-logo">$$</div>
-                <span>Trực tiếp</span>
+                <span>Truc tiep</span>
               </div>
             </label>
             <label className="payment-option">
@@ -221,20 +335,30 @@ export function CartPage() {
                 value="vnpay"
                 checked={selectedPayment === 'vnpay'}
                 onChange={(event) => setSelectedPayment(event.target.value)}
+                disabled={!isCustomer}
               />
-              <div className="payment-card">
+              <div
+                className="payment-card"
+                style={!isCustomer ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+              >
                 <div className="payment-logo">QR</div>
                 <span>VNPay</span>
               </div>
             </label>
           </div>
 
+          {!isCustomer && (
+            <p style={{ color: '#92400e', marginTop: '8px' }}>
+              Guest QR MVP hien chi mo thanh toan truc tiep. Neu can, toi se noi them luong VNPay/MoMo that sau.
+            </p>
+          )}
+
           {selectedPayment !== 'direct' && (
             <div className="qr-section">
               <div className="qr-code">
                 {selectedPayment === 'vnpay' ? 'VNPay QR' : 'QR Code'}
               </div>
-              <p>Quét mã QR để thanh toán</p>
+              <p>Quet ma QR de thanh toan</p>
             </div>
           )}
 
@@ -243,14 +367,14 @@ export function CartPage() {
               className="btn secondary"
               onClick={() => setShowPayment(false)}
             >
-              Quay lại
+              Quay lai
             </button>
             <button
               className="btn"
               onClick={confirmPayment}
               disabled={tablesLoading || !selectedTable}
             >
-              Xác nhận thanh toán
+              {isCustomer ? 'Xac nhan thanh toan' : 'Gui order cho quan'}
             </button>
           </div>
         </div>
@@ -260,10 +384,10 @@ export function CartPage() {
 
   return (
     <div className="container">
-      <h2>Giỏ hàng</h2>
+      <h2>Gio hang</h2>
       {items.length === 0 ? (
         <div className="empty-cart">
-          <p>Chưa có sản phẩm nào trong giỏ hàng.</p>
+          <p>Chua co san pham nao trong gio hang.</p>
         </div>
       ) : (
         <>
@@ -277,7 +401,7 @@ export function CartPage() {
                 />
                 <div className="cart-item-info">
                   <div className="cart-item-price">
-                    {item.product.price.toLocaleString('vi-VN')}đ
+                    {item.product.price.toLocaleString('vi-VN')}d
                   </div>
                   <div className="quantity-controls">
                     <button
@@ -303,7 +427,7 @@ export function CartPage() {
                     }
                   }}
                 >
-                  Xóa
+                  Xoa
                 </button>
               </div>
             ))}
@@ -311,7 +435,7 @@ export function CartPage() {
 
           <div className="cart-summary">
             <div className="summary-row">
-              <label>Số lượng:</label>
+              <label>So luong:</label>
               <input
                 type="text"
                 value={totalQuantity}
@@ -320,15 +444,15 @@ export function CartPage() {
               />
             </div>
             <div className="summary-row">
-              <label>Tổng tiền:</label>
+              <label>Tong tien:</label>
               <div className="total-amount">
-                {total.toLocaleString('vi-VN')}đ
+                {total.toLocaleString('vi-VN')}d
               </div>
             </div>
           </div>
 
           <button className="checkout-btn" onClick={checkout}>
-            Thanh toán
+            Thanh toan
           </button>
         </>
       )}

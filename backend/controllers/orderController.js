@@ -6,6 +6,8 @@
 const orderService = require('../services/orderService');
 const { success, error, created, paginated } = require('../utils/responseFormatter');
 const logger = require('../config/logger');
+const { appendGuestNote, normalizeGuestName } = require('../utils/guestOrder');
+const { verifySignedTablePayload } = require('../utils/qrSignature');
 
 /**
  * Create new order
@@ -33,6 +35,53 @@ exports.createOrder = async (req, res) => {
     }
 
     res.status(500).json(error('Create order error', 500, err.message));
+  }
+};
+
+/**
+ * Create new guest order from QR/table flow
+ */
+exports.createGuestOrder = async (req, res) => {
+  try {
+    const { table_id, table_number, note, items, guest_name, payment_method, ts, sig } = req.body;
+
+    verifySignedTablePayload(table_number, ts, sig);
+
+    const guestName = normalizeGuestName(guest_name);
+    const result = await orderService.createGuestOrder({
+      table_id,
+      table_number,
+      note: appendGuestNote(note, guestName),
+      items,
+      payment_method: payment_method || 'cash',
+      payment_status: 'pending'
+    });
+
+    res.status(201).json(created({
+      ...result,
+      guest_name: guestName
+    }, 'Guest order created successfully'));
+  } catch (err) {
+    logger.error('Error creating guest order', {
+      error: err.message,
+      tableNumber: req.body?.table_number,
+      tableId: req.body?.table_id
+    });
+
+    if (
+      err.message.includes('required') ||
+      err.message.includes('must') ||
+      err.message.includes('not found') ||
+      err.message.includes('not available') ||
+      err.message.includes('inactive') ||
+      err.message.includes('signature') ||
+      err.message.includes('expired') ||
+      err.message.includes('timestamp')
+    ) {
+      return res.status(400).json(error(err.message, 400));
+    }
+
+    res.status(500).json(error('Create guest order error', 500, err.message));
   }
 };
 

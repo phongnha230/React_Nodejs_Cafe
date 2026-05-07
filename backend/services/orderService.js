@@ -10,13 +10,44 @@ const OrderItem = require('../models/orderItem');
 const Payment = require('../models/payment');
 const Product = require('../models/product');
 const Table = require('../models/table');
+const User = require('../models/user');
 const { ORDER_STATUS, VALID_TRANSITIONS } = require('../constants/orderStatus');
 const { calculateSubtotal } = require('../utils/priceCalculator');
+const { parseGuestNameFromNote, stripGuestNotePrefix } = require('../utils/guestOrder');
 const logger = require('../config/logger');
 
 class OrderService {
+    constructor() {
+        this.guestUserCache = null;
+    }
+
     isTerminalStatus(status) {
         return [ORDER_STATUS.DELIVERED, ORDER_STATUS.CANCELLED].includes(status);
+    }
+
+    async getOrCreateGuestUser() {
+        if (this.guestUserCache?.id) {
+            return this.guestUserCache;
+        }
+
+        const guestEmail = process.env.QR_GUEST_EMAIL || 'guest.qr@cafe.local';
+        const guestUsername = process.env.QR_GUEST_USERNAME || 'guest_qr_system';
+        const guestDisplayName = process.env.QR_GUEST_NAME || 'Khach QR';
+
+        let guestUser = await User.findOne({ where: { email: guestEmail } });
+
+        if (!guestUser) {
+            guestUser = await User.create({
+                username: guestUsername,
+                email: guestEmail,
+                password: `guest-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+                role: 'customer',
+                name: guestDisplayName
+            });
+        }
+
+        this.guestUserCache = guestUser;
+        return guestUser;
     }
 
     async syncTableOccupancy(tableId, transaction = null) {
@@ -47,8 +78,9 @@ class OrderService {
      * @param {object} orderData - Order data (table_number, note, items)
      * @returns {Promise<object>} Created order with items
      */
-    async createOrder(userId, orderData) {
-        const { table_id, table_number, note, items } = orderData;
+    async createOrderForUser(userId, orderData, options = {}) {
+        const { table_id, table_number, note, items, payment_method, payment_status } = orderData;
+        const { isGuestOrder = false } = options;
 
         // Validate items
         if (!Array.isArray(items) || items.length === 0) {
@@ -146,6 +178,15 @@ class OrderService {
             // Create order items
             await OrderItem.bulkCreate(orderItems, { transaction });
 
+            if (isGuestOrder) {
+                await Payment.create({
+                    order_id: order.id,
+                    amount: totalAmount,
+                    method: payment_method || 'cash',
+                    status: payment_status || 'pending'
+                }, { transaction });
+            }
+
             if (resolvedTable) {
                 await this.syncTableOccupancy(resolvedTable.id, transaction);
             }
@@ -169,6 +210,27 @@ class OrderService {
             logger.error('Error creating order', { error: error.message, userId });
             throw error;
         }
+    }
+
+    async createOrder(userId, orderData) {
+        return this.createOrderForUser(userId, orderData);
+    }
+
+    async createGuestOrder(orderData) {
+        const guestUser = await this.getOrCreateGuestUser();
+        return this.createOrderForUser(guestUser.id, orderData, { isGuestOrder: true });
+    }
+
+    decorateOrder(order) {
+        if (!order) return order;
+
+        const guestName = parseGuestNameFromNote(order.note);
+        if (guestName) {
+            order.setDataValue('guest_name', guestName);
+            order.setDataValue('note', stripGuestNotePrefix(order.note));
+        }
+
+        return order;
     }
 
     /**
@@ -200,12 +262,13 @@ class OrderService {
             include: [
                 { model: OrderItem, as: 'items' },
                 { model: Payment, as: 'payments' },
-                { model: Table, as: 'table' }
+                { model: Table, as: 'table' },
+                { model: User, as: 'User', attributes: ['id', 'username', 'name', 'role'] }
             ]
         });
 
         return {
-            orders: rows,
+            orders: rows.map(order => this.decorateOrder(order)),
             pagination: {
                 page: parseInt(page),
                 limit: parseInt(limit),
@@ -239,7 +302,8 @@ class OrderService {
                     include: [{ model: Product, as: 'product' }]
                 },
                 { model: Payment, as: 'payments' },
-                { model: Table, as: 'table' }
+                { model: Table, as: 'table' },
+                { model: User, as: 'User', attributes: ['id', 'username', 'name', 'role'] }
             ]
         });
 
@@ -247,7 +311,7 @@ class OrderService {
             throw new Error('Order not found or access denied');
         }
 
-        return order;
+        return this.decorateOrder(order);
     }
 
     /**

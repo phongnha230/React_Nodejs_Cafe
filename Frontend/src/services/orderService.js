@@ -10,6 +10,9 @@ const orderService = {
   //create a new order by admin
   create: (data) => api.post(API_ENDPOINTS.ORDERS.CREATE, data),
 
+  //create a new guest order by QR/table flow
+  createGuest: (data) => api.post(API_ENDPOINTS.ORDERS.CREATE_GUEST, data),
+
   //update order status by ID (admin only)
   updateStatus: (id, data) => api.put(API_ENDPOINTS.ORDERS.UPDATE_STATUS(id), data),
 };

@@ -10,6 +10,9 @@ router.get('/', authMW, allow('admin', 'customer'), validatePagination, oc.listO
 // Create order
 router.post('/', authMW, allow('admin', 'customer'), validateOrderCreation, oc.createOrder);
 
+// Create guest order via QR/table flow
+router.post('/guest', validateOrderCreation, oc.createGuestOrder);
+
 // Get order by id
 router.get('/:id', authMW, allow('admin', 'customer'), validateId, oc.getOrderById);
 
