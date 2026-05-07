@@ -1,48 +1,48 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import { FiShoppingBag } from 'react-icons/fi';
 import { useCartStore } from '../../stores/cartStore.js';
 import { useAuth } from '../../hooks/useAuth.js';
 import { useNotifyStore } from '../../stores/notifyStore.js';
 import { ROUTES } from '../../config/routes';
-import { ROLES } from '../../constants/roles';
 import { MESSAGES } from '../../constants/messages';
 
 export function Header({ onMenuClick }) {
   const count = useCartStore((s) => s.items.reduce((n, i) => n + i.quantity, 0));
-  const { role, logout, customerName, isAdmin, isCustomer, isGuest } = useAuth();
+  const { logout, customerName, isAdmin, isCustomer, isGuest } = useAuth();
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState('');
   const toast = useNotifyStore();
 
   useEffect(() => {
-    const ids = ['about', 'activities', 'news', 'menu', 'contact']
+    const ids = ['about', 'activities', 'news', 'menu', 'contact'];
     const handler = () => {
-      let current = ''
+      let current = '';
       for (const id of ids) {
-        const el = document.getElementById(id)
-        if (!el) continue
-        const rect = el.getBoundingClientRect()
+        const el = document.getElementById(id);
+        if (!el) continue;
+        const rect = el.getBoundingClientRect();
         if (rect.top <= 110 && rect.bottom > 110) {
-          // under header
-          current = id
-          break
+          current = id;
+          break;
         }
       }
-      setActiveSection(current)
-    }
-    window.addEventListener('scroll', handler, { passive: true })
-    handler()
-    return () => window.removeEventListener('scroll', handler)
-  }, [])
+      setActiveSection(current);
+    };
+
+    window.addEventListener('scroll', handler, { passive: true });
+    handler();
+    return () => window.removeEventListener('scroll', handler);
+  }, []);
 
   const goto = (id) => (e) => {
-    e.preventDefault()
-    const el = document.getElementById(id)
+    e.preventDefault();
+    const el = document.getElementById(id);
     if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      setActiveSection(id)
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setActiveSection(id);
     }
-  }
+  };
 
   return (
     <div className="header">
@@ -55,22 +55,20 @@ export function Header({ onMenuClick }) {
             <span></span>
           </button>
         )}
+
         <div className="brand">
           <div className="brand-logo">☕</div>
           <span className="brand-name">
             jokopi.
-            <span className="brand-suffix">
-              {isAdmin ? 'Admin' : 'Home'}
-            </span>
+            <span className="brand-suffix">{isAdmin ? 'Admin' : 'Home'}</span>
           </span>
         </div>
+
         <nav className="nav">
           <NavLink
             to={ROUTES.HOME}
             end
-            className={({ isActive }) =>
-              isActive ? 'nav-link active' : 'nav-link'
-            }
+            className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
           >
             Trang chủ
           </NavLink>
@@ -84,9 +82,7 @@ export function Header({ onMenuClick }) {
           <a
             href="#activities"
             onClick={goto('activities')}
-            className={`nav-link ${
-              activeSection === 'activities' ? 'active' : ''
-            }`}
+            className={`nav-link ${activeSection === 'activities' ? 'active' : ''}`}
           >
             Hoạt động
           </a>
@@ -100,26 +96,31 @@ export function Header({ onMenuClick }) {
           <a
             href="#contact"
             onClick={goto('contact')}
-            className={`nav-link ${
-              activeSection === 'contact' ? 'active' : ''
-            }`}
+            className={`nav-link ${activeSection === 'contact' ? 'active' : ''}`}
           >
             Liên hệ
           </a>
-          <Link to={ROUTES.CART} className="nav-link">
-            Giỏ hàng ({count})
+          <Link
+            to={ROUTES.CART}
+            className="nav-link cart-link"
+            aria-label={`Giỏ hàng, ${count} sản phẩm`}
+          >
+            <span className="cart-link-icon" aria-hidden="true">
+              <FiShoppingBag />
+            </span>
+            <span className="cart-link-text">Giỏ hàng</span>
+            <span className="cart-link-count">{count}</span>
           </Link>
           {isCustomer && (
             <NavLink
               to={ROUTES.MY_ORDERS}
-              className={({ isActive }) =>
-                isActive ? 'nav-link active' : 'nav-link'
-              }
+              className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
             >
               Đơn của tôi
             </NavLink>
           )}
         </nav>
+
         <div className="header-cta">
           {isGuest ? (
             <Link className="btn login-btn" to={ROUTES.LOGIN}>
@@ -146,5 +147,5 @@ export function Header({ onMenuClick }) {
         </div>
       </div>
     </div>
-  )
+  );
 }

@@ -1,61 +1,77 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Banner } from '../../components/common/Banner.jsx'
-import { FilterBar } from '../../components/common/FilterBar.jsx'
-import { ProductCard } from '../../components/common/ProductCard.jsx'
-import { useProductStore } from '../../stores/productStore.js'
+import { useEffect, useRef, useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { useNewsStore } from '../../stores/newsStore.js'
-import { useActivitiesStore } from '../../stores/activitiesStore.js'
-import { useAuthStore } from '../../stores/authStore.js'
-import { useReviewStore } from '../../stores/reviewStore.js'
-import { Sidebar } from '../../components/layout/Sidebar.jsx'
+import { Banner } from '../../components/common/Banner'
+import { FilterBar } from '../../components/common/FilterBar'
+import { ProductCard } from '../../components/common/ProductCard'
+import { useProductStore } from '../../stores/productStore'
+import { useActivitiesStore } from '../../stores/activitiesStore'
+import { useNewsStore } from '../../stores/newsStore'
 
 function AboutSection() {
   return (
     <section className="section about" id="about">
       <div className="container">
-        <header className="brand-name-section">
-          <h2 className="brand-text">jokopi.</h2>
-          <span className="brand-suffix-text">Home</span>
-        </header>
-        <div className="about-layout">
-          <div className="about-features">
-            <article className="about-card">
-              <div className="about-card-icon">??</div>
-              <h3 className="about-card-title">Kh�ng gian y�n tinh</h3>
-              <p className="about-card-text">
-                Kh�ng ch? l� noi d? thu?ng th?c c� ph�, m� c�n l� m?t kh�ng gian
-                y�n tinh d? b?n tho�t kh?i cu?c s?ng b?n r?n.
-              </p>
-            </article>
-            <article className="about-card">
-              <div className="about-card-icon">?</div>
-              <h3 className="about-card-title">Menu da d?ng</h3>
-              <p className="about-card-text">
-                Menu da d?ng t? c� ph� rang nguy�n ch?t, tr� thanh m�t d?n c�c
-                th?c u?ng d?c quy?n du?c ch? bi?n c?n th?n.
-              </p>
-            </article>
-            <article className="about-card">
-              <div className="about-card-icon">?</div>
-              <h3 className="about-card-title">Tr?i nghi?m d?c bi?t</h3>
-              <p className="about-card-text">
-                V?i kh�ng gian ?m c�ng, trang tr� t? m? v� tinh t?, ch�ng t�i
-                mang d?n cho b?n tr?i nghi?m tho?i m�i v� "chill".
-              </p>
-            </article>
+        <div className="about-content">
+          <div className="about-text">
+            <div className="brand-name-section">
+              <span className="brand-text">jokopi.</span>
+              <span className="brand-suffix-text">Home</span>
+            </div>
+            
+            <div className="about-grid">
+              <article className="about-card">
+                <div className="about-card-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                </div>
+                <div className="about-card-info">
+                  <h3 className="about-card-title">Không gian yên tĩnh</h3>
+                  <p className="about-card-text">
+                    Không chỉ là nơi thưởng thức cà phê, mỗi góc nhỏ tại jokopi đều được thiết kế để mang lại sự tĩnh lặng, giúp bạn tách biệt khỏi sự ồn ào của phố thị.
+                  </p>
+                </div>
+              </article>
+
+              <article className="about-card">
+                <div className="about-card-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                </div>
+                <div className="about-card-info">
+                  <h3 className="about-card-title">Menu đa dạng</h3>
+                  <p className="about-card-text">
+                    Từ những hạt cà phê rang xay nguyên chất đến những thức uống độc quyền, thực đơn của chúng tôi luôn đa dạng và được chuẩn bị tỉ mỉ để chiều lòng mọi gu thưởng thức.
+                  </p>
+                </div>
+              </article>
+
+              <article className="about-card">
+                <div className="about-card-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                </div>
+                <div className="about-card-info">
+                  <h3 className="about-card-title">Trải nghiệm đặc biệt</h3>
+                  <p className="about-card-text">
+                    Tại jokopi, mỗi khách hàng đều là một người bạn. Chúng tôi mang đến không gian ấm cúng, tinh tế để bạn có thể "chill" và tận hưởng những khoảnh khắc đáng nhớ.
+                  </p>
+                </div>
+              </article>
+            </div>
           </div>
+
           <aside className="about-images">
-            <img
-              className="about-showcase-img"
-              src="/src/assets/space_coffee.jpg"
-              alt="Kh�ng gian qu�n cafe jokopi ?m c�ng v� hi?n d?i"
-            />
-            <img
-              className="about-showcase-img"
-              src="https://images.unsplash.com/photo-1445116572660-236099ec97a0?q=80&w=800&auto=format&fit=crop"
-              alt="Khu v?c l�m vi?c t?i qu�n cafe jokopi"
-            />
+            <div className="about-image-wrapper">
+              <img
+                className="about-showcase-img"
+                src="/src/assets/space_coffee.jpg"
+                alt="Không gian quán cafe jokopi ấm cúng"
+              />
+            </div>
+            <div className="about-image-wrapper">
+              <img
+                className="about-showcase-img"
+                src="https://images.unsplash.com/photo-1445116572660-236099ec97a0?q=80&w=800&auto=format&fit=crop"
+                alt="Khu vực làm việc tại jokopi"
+              />
+            </div>
           </aside>
         </div>
       </div>
@@ -67,7 +83,7 @@ function ActionsSection({ q, setQ, cat, setCat, price, setPrice }) {
   return (
     <section className="section actions">
       <div className="container">
-        <h3 className="section-title">T�m m�n & Gi? h�ng</h3>
+        <h3 className="section-title">Tìm món & Giỏ hàng</h3>
         <div className="actions-bar">
           <FilterBar
             q={q}
@@ -77,8 +93,8 @@ function ActionsSection({ q, setQ, cat, setCat, price, setPrice }) {
             price={price}
             setPrice={setPrice}
           />
-          <Link className="btn" to="/cart">
-            Xem gi? h�ng
+          <Link className="btn-premium" to="/cart">
+            Xem giỏ hàng của bạn
           </Link>
         </div>
       </div>
@@ -87,11 +103,11 @@ function ActionsSection({ q, setQ, cat, setCat, price, setPrice }) {
 }
 
 function GallerySection() {
-  const items = useActivitiesStore((s) => s.items)
+  const items = useActivitiesStore((s) => s.items) || []
   return (
-    <section className="section" id="activities">
+    <section className="section reveal" id="activities">
       <div className="container">
-        <h3 className="section-title">Ho?t d?ng c?a qu�n</h3>
+        <h3 className="section-title">Hoạt động của quán</h3>
         <div className="gallery">
           {items.map((it) => (
             <img
@@ -108,36 +124,24 @@ function GallerySection() {
 }
 
 function NewsSection() {
-  const news = useNewsStore((s) => s.news)
+  const news = useNewsStore((s) => s.news) || []
   const sorted = useMemo(() => {
-    return [...news].sort((a, b) => {
-      const pa = a.pinned ? 1 : 0
-      const pb = b.pinned ? 1 : 0
-      if (pa !== pb) return pb - pa // pinned first
-      const ca = typeof a.createdAt === 'number' ? a.createdAt : 0
-      const cb = typeof b.createdAt === 'number' ? b.createdAt : 0
-      return cb - ca // newest first
-    })
+    return [...news].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
   }, [news])
+
   return (
-    <section className="section" id="news">
+    <section className="section reveal" id="news">
       <div className="container">
-        <h3 className="section-title">Tin t?c v? qu�n</h3>
+        <h3 className="section-title">Tin tức mới nhất</h3>
         <div className="news-grid">
-          {sorted.map((n, i) => (
-            <article key={i} className="card">
-              <img className="news-thumb" src={n.img} alt={n.title} />
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                {n.pinned && <span className="badge">Ghim</span>}
-                <div style={{ fontWeight: 600, fontSize: 16 }}>{n.title}</div>
-              </div>
-              <div style={{
-                color: '#555',
-                wordWrap: 'break-word',
-                whiteSpace: 'normal',
-                lineHeight: '1.5'
-              }}>
-                {n.excerpt}
+          {sorted.slice(0, 3).map((item) => (
+            <article key={item.id} className="card news-card">
+              <img src={item.img} alt={item.title} className="news-thumb" />
+              <div className="news-content">
+                <h4>{item.title}</h4>
+                <p className="news-date">{new Date(item.createdAt).toLocaleDateString('vi-VN')}</p>
+                <p>{item.excerpt}</p>
+                <Link to={`/news/${item.id}`} className="read-more">Đọc thêm</Link>
               </div>
             </article>
           ))}
@@ -147,68 +151,56 @@ function NewsSection() {
   )
 }
 
-export function HomePage({ sidebarOpen, setSidebarOpen }) {
+export default function HomePage() {
+  const { products, loadFromAPI } = useProductStore()
+  const loadNews = useNewsStore((s) => s.loadFromAPI)
+
   const [q, setQ] = useState('')
   const [cat, setCat] = useState('')
   const [price, setPrice] = useState('')
-  const [activeTab, setActiveTab] = useState('revenue')
-  const rootRef = useRef(null)
-  const products = useProductStore((s) => s.products)
-  const loadFromAPI = useProductStore((s) => s.loadFromAPI)
-  const loadNews = useNewsStore((s) => s.loadFromAPI)
-  const loadReviews = useReviewStore((s) => s.loadFromAPI)
-  const role = useAuthStore((s) => s.role)
 
-  // Load products from MySQL khi v�o trang
+  const rootRef = useRef(null)
+
   useEffect(() => {
     loadFromAPI()
-  }, [loadFromAPI])
-
-  // Load news so that news section displays latest articles
-  useEffect(() => {
     loadNews()
-  }, [loadNews])
-
-  // Load reviews so that ratings are displayed on product cards
-  useEffect(() => {
-    loadReviews()
-  }, [loadReviews])
-
-  useEffect(() => {
-    const root = rootRef.current || document
-    const els = root.querySelectorAll('.reveal')
-    const io = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((e) => {
-          if (e.isIntersecting) e.target.classList.add('visible')
-        })
-      },
-      { threshold: 0.12 }
-    )
-    els.forEach((el) => io.observe(el))
-    return () => io.disconnect()
   }, [])
 
-  const list = useMemo(() => {
-    let res = products.filter((p) =>
-      p.name.toLowerCase().includes(q.toLowerCase())
-    )
-    if (cat) res = res.filter((p) => p.category === cat)
-    if (price === 'asc') res = [...res].sort((a, b) => a.price - b.price)
-    if (price === 'desc') res = [...res].sort((a, b) => b.price - a.price)
-    return res
+  const filteredProducts = useMemo(() => {
+    let result = (products || []).filter(p => {
+      const matchQ = p.name.toLowerCase().includes(q.toLowerCase())
+      const matchCat = !cat || p.category === cat
+      return matchQ && matchCat
+    })
+
+    if (price === 'asc') {
+      result.sort((a, b) => a.price - b.price)
+    } else if (price === 'desc') {
+      result.sort((a, b) => b.price - a.price)
+    }
+
+    return result
   }, [products, q, cat, price])
+
+  useEffect(() => {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible')
+        }
+      })
+    }, { threshold: 0.1 })
+
+    if (rootRef.current) {
+      const reveals = rootRef.current.querySelectorAll('.reveal')
+      reveals.forEach((el) => observer.observe(el))
+    }
+
+    return () => observer.disconnect()
+  }, [])
 
   return (
     <>
-      {role === 'admin' && (
-        <Sidebar
-          isOpen={sidebarOpen}
-          onClose={() => setSidebarOpen(false)}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-        />
-      )}
       <div ref={rootRef}>
         <Banner />
         <div className="reveal">
@@ -226,9 +218,9 @@ export function HomePage({ sidebarOpen, setSidebarOpen }) {
         </div>
         <section className="section reveal" id="menu">
           <div className="container">
-            <h3 className="section-title">Menu</h3>
+            <h3 className="section-title">Thực đơn của chúng tôi</h3>
             <div className="grid">
-              {list.map((p) => (
+              {filteredProducts.map((p) => (
                 <ProductCard key={p.id} product={p} />
               ))}
             </div>
