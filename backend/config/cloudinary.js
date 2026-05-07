@@ -1,24 +1,36 @@
-const cloudinary = require('cloudinary').v2;
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const cloudinary = require('cloudinary');
+const cloudinaryStorage = require('multer-storage-cloudinary');
 const dotenv = require('dotenv');
 
 dotenv.config();
 
-// Cấu hình Cloudinary
-cloudinary.config({
+cloudinary.v2.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// Thiết lập Storage cho Multer
-const storage = new CloudinaryStorage({
+const allowedFormats = [
+  'jpg',
+  'jpeg',
+  'png',
+  'webp',
+  'gif',
+  'mp4',
+  'mov',
+  'avi',
+  'mkv',
+  'webm',
+];
+
+const storage = cloudinaryStorage({
   cloudinary,
+  allowedFormats,
   params: {
     folder: 'cafe_app_uploads',
     resource_type: 'auto',
-    allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'mov', 'avi', 'mkv', 'webm']
-  }
+    allowed_formats: allowedFormats,
+  },
 });
 
 module.exports = { cloudinary, storage };

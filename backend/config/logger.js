@@ -1,37 +1,47 @@
-const winston = require('winston');
+const fs = require('fs');
 const path = require('path');
+const winston = require('winston');
 
-// Tạo logger với Winston
+const logDir = path.join(__dirname, '../logs');
+const transports = [];
+
+try {
+  fs.mkdirSync(logDir, { recursive: true });
+  transports.push(
+    new winston.transports.File({
+      filename: path.join(logDir, 'error.log'),
+      level: 'error',
+    }),
+    new winston.transports.File({
+      filename: path.join(logDir, 'combined.log'),
+    })
+  );
+} catch (error) {
+  console.warn(`Logger file transport disabled: ${error.message}`);
+}
+
+if (process.env.NODE_ENV !== 'production' || transports.length === 0) {
+  transports.push(
+    new winston.transports.Console({
+      format: winston.format.combine(
+        winston.format.colorize(),
+        winston.format.simple()
+      ),
+    })
+  );
+}
+
 const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || 'info',
   format: winston.format.combine(
     winston.format.timestamp({
-      format: 'YYYY-MM-DD HH:mm:ss'
+      format: 'YYYY-MM-DD HH:mm:ss',
     }),
     winston.format.errors({ stack: true }),
     winston.format.json()
   ),
   defaultMeta: { service: 'cafe-backend' },
-  transports: [
-    // Ghi log vào file
-    new winston.transports.File({
-      filename: path.join(__dirname, '../logs/error.log'),
-      level: 'error'
-    }),
-    new winston.transports.File({
-      filename: path.join(__dirname, '../logs/combined.log')
-    }),
-  ],
+  transports,
 });
-
-// Nếu không phải production, ghi log ra console
-if (process.env.NODE_ENV !== 'production') {
-  logger.add(new winston.transports.Console({
-    format: winston.format.combine(
-      winston.format.colorize(),
-      winston.format.simple()
-    )
-  }));
-}
 
 module.exports = logger;
