@@ -2,11 +2,11 @@ import { useAuth } from '../../hooks/useAuth.js';
 import { useNavigate } from 'react-router-dom';
 import { useNotifyStore } from '../../stores/notifyStore.js';
 import { ROUTES } from '../../config/routes';
-import { ROLES, ROLE_LABELS } from '../../constants/roles';
+import { ROLE_LABELS } from '../../constants/roles';
 import { MESSAGES } from '../../constants/messages';
 
 export function Sidebar({ isOpen, onClose, activeTab, onTabChange }) {
-  const { role, customerName, logout, isAdmin } = useAuth();
+  const { role, customerName, logout } = useAuth();
   const navigate = useNavigate();
   const toast = useNotifyStore();
 
@@ -30,7 +30,7 @@ export function Sidebar({ isOpen, onClose, activeTab, onTabChange }) {
     { key: 'news', label: 'Tin tức', icon: '📰' },
     { key: 'activities', label: 'Hoạt động', icon: '📸' },
     { key: 'orders', label: 'Quản lý đơn hàng', icon: '📦' },
-    { key: 'payments', label: 'Quản lý thanh toán', icon: '💳' },
+    { key: 'tables', label: 'Quản lý bàn & QR', icon: '🪑' },
   ]
 
   return (
@@ -55,13 +55,8 @@ export function Sidebar({ isOpen, onClose, activeTab, onTabChange }) {
                 activeTab === item.key ? 'active' : ''
               }`}
               onClick={() => {
-                // Always go to /admin to show dashboard content
-                navigate(ROUTES.ADMIN);
-                // Defer state change slightly to allow route switch
-                setTimeout(() => {
-                  if (onTabChange) onTabChange(item.key);
-                  if (onClose) onClose();
-                }, 0);
+                if (onTabChange) onTabChange(item.key)
+                if (onClose) onClose()
               }}
             >
               <span className="sidebar-icon">{item.icon}</span>
@@ -89,4 +84,3 @@ export function Sidebar({ isOpen, onClose, activeTab, onTabChange }) {
     </>
   )
 }
-
