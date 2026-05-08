@@ -14,7 +14,8 @@ export const useUsersStore = create((set, get) => ({
     set({ loading: true, error: null });
     try {
       const response = await userService.getAll(params);
-      const apiUsers = response.data || [];
+      const payload = response.data;
+      const apiUsers = Array.isArray(payload) ? payload : (payload?.data || []);
       
       // Format data
       const formattedUsers = apiUsers.map(user => ({
