@@ -4,9 +4,15 @@ import {
   PieChart, Pie, Cell 
 } from 'recharts'
 
-export function RevenueTab({ stats, orders }) {
+export function RevenueTab({ stats, orders = [] }) {
+  if (!stats) return <div className="loading-stats">Đang tải dữ liệu thống kê...</div>;
+
+  const totalRevenue = Number(stats.totalRevenue) || 0;
+  const totalOrders = stats.totalOrders || 0;
+  const totalProductsSold = stats.totalProductsSold || 0;
+
   // Group orders by time periods
-  const ordersByTime = orders.reduce((acc, order) => {
+  const ordersByTime = (orders || []).reduce((acc, order) => {
     const hour = new Date(order.createdAt).getHours()
     let period
     if (hour >= 6 && hour < 12) period = 'Sáng (6h-12h)'
@@ -33,23 +39,35 @@ export function RevenueTab({ stats, orders }) {
     <>
       <div className="stats-cards">
         <div className="stat-card">
-          <div className="stat-label">Tổng doanh thu</div>
-          <div className="stat-value">{stats.totalRevenue.toLocaleString('vi-VN')}đ</div>
+          <div className="stat-icon">💰</div>
+          <div className="stat-info">
+            <div className="stat-label">Tổng doanh thu</div>
+            <div className="stat-value">{(totalRevenue || 0).toLocaleString('vi-VN')}đ</div>
+          </div>
         </div>
         <div className="stat-card">
-          <div className="stat-label">Đơn hàng hoàn tất</div>
-          <div className="stat-value">{stats.totalOrders}</div>
+          <div className="stat-icon">📈</div>
+          <div className="stat-info">
+            <div className="stat-label">Đơn hàng hoàn tất</div>
+            <div className="stat-value">{totalOrders || 0}</div>
+          </div>
         </div>
         <div className="stat-card">
-          <div className="stat-label">Sản phẩm bán ra</div>
-          <div className="stat-value">{stats.totalProductsSold}</div>
+          <div className="stat-icon">☕</div>
+          <div className="stat-info">
+            <div className="stat-label">Sản phẩm bán ra</div>
+            <div className="stat-value">{totalProductsSold || 0}</div>
+          </div>
         </div>
         <div className="stat-card">
-          <div className="stat-label">Giá trị trung bình</div>
-          <div className="stat-value">
-            {stats.totalOrders > 0
-              ? Math.round(stats.totalRevenue / stats.totalOrders).toLocaleString('vi-VN')
-              : 0}đ
+          <div className="stat-icon">💎</div>
+          <div className="stat-info">
+            <div className="stat-label">Giá trị trung bình</div>
+            <div className="stat-value">
+              {totalOrders > 0
+                ? Math.round(totalRevenue / totalOrders).toLocaleString('vi-VN')
+                : 0}đ
+            </div>
           </div>
         </div>
       </div>

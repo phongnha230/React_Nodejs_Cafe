@@ -189,16 +189,39 @@ export const useOrderStore = create((set, get) => ({
   },
 
   stats() {
-    const orders = get().orders;
+    const orders = get().orders || [];
     const deliveredOrders = orders.filter((order) => order.status === 'delivered');
     const totalOrders = orders.length;
-    const totalRevenue = deliveredOrders.reduce((sum, order) => sum + order.total, 0);
-    const map = new Map();
+    const totalRevenue = deliveredOrders.reduce((sum, order) => sum + (Number(order.total) || 0), 0);
 
+    // Status breakdown
+    const statusBreakdown = orders.reduce((acc, order) => {
+      acc[order.status] = (acc[order.status] || 0) + 1;
+      return acc;
+    }, {});
+
+    // Daily revenue (last 7 days)
+    const dailyRevenue = {};
+    const today = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      dailyRevenue[dateStr] = 0;
+    }
+
+    deliveredOrders.forEach(order => {
+      const dateStr = new Date(order.createdAt).toISOString().split('T')[0];
+      if (dailyRevenue[dateStr] !== undefined) {
+        dailyRevenue[dateStr] += (Number(order.total) || 0);
+      }
+    });
+
+    const map = new Map();
     for (const order of orders) {
-      const name = order.customerName || 'Khach vang lai';
+      const name = order.customerName || 'Khách vãng lai';
       const value = map.get(name) ?? { total: 0, count: 0 };
-      value.total += order.total;
+      value.total += (Number(order.total) || 0);
       value.count += 1;
       map.set(name, value);
     }
@@ -210,11 +233,14 @@ export const useOrderStore = create((set, get) => ({
 
     return {
       totalOrders,
-      totalRevenue,
-      realRevenue: totalRevenue,
-      displayRevenue: totalRevenue,
+      totalRevenue: totalRevenue || 0,
+      realRevenue: totalRevenue || 0,
+      displayRevenue: totalRevenue || 0,
       topBuyers,
-      topProducts: []
+      topProducts: [],
+      statusBreakdown,
+      dailyRevenue,
+      totalProductsSold: deliveredOrders.reduce((sum, o) => sum + (o.items?.length || 0), 0)
     };
   }
 }));
