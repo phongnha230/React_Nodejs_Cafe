@@ -5,7 +5,7 @@
 
 const User = require('../models/user');
 const jwt = require('jsonwebtoken');
-const { hashPassword, comparePassword } = require('../utils/encryption');
+const { comparePassword } = require('../utils/encryption');
 const { ROLES } = require('../constants/roles');
 const { JWT_EXPIRATION } = require('../constants/config');
 const logger = require('../config/logger');
@@ -47,14 +47,11 @@ class AuthService {
             throw new Error('Username already in use');
         }
 
-        // Hash password
-        const hashedPassword = await hashPassword(password);
-
         // Create user
         const user = await User.create({
             username,
             email,
-            password: hashedPassword,
+            password, // User model will hash this in beforeCreate hook
             role
         });
 
@@ -197,11 +194,8 @@ class AuthService {
             throw new Error('New password must be at least 6 characters');
         }
 
-        // Hash new password
-        const hashedPassword = await hashPassword(newPassword);
-
-        // Update password
-        await user.update({ password: hashedPassword });
+        // Update password (User model will hash this in beforeUpdate hook)
+        await user.update({ password: newPassword });
 
         logger.info('Password changed', { userId });
 

@@ -4,7 +4,7 @@
  */
 
 const User = require('../models/user');
-const { hashPassword, comparePassword } = require('../utils/encryption');
+const { comparePassword } = require('../utils/encryption');
 const { ROLES } = require('../constants/roles');
 const logger = require('../config/logger');
 
@@ -97,14 +97,11 @@ class UserService {
             throw new Error('Username already exists');
         }
 
-        // Hash password
-        const hashedPassword = await hashPassword(password);
-
-        // Create user
+        // Create user (User model will hash password in beforeCreate hook)
         const user = await User.create({
             username,
             email,
-            password: hashedPassword,
+            password,
             name,
             role
         });
@@ -204,11 +201,8 @@ class UserService {
             throw new Error('Current password is incorrect');
         }
 
-        // Hash new password
-        const hashedPassword = await hashPassword(newPassword);
-
-        // Update password
-        await user.update({ password: hashedPassword });
+        // Update password (User model will hash password in beforeUpdate hook)
+        await user.update({ password: newPassword });
 
         logger.info('Password changed', { userId });
 

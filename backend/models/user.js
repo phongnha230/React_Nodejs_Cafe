@@ -44,12 +44,18 @@ const User = sequelize.define('User', {
   timestamps: true,
   createdAt: 'created_at',
   updatedAt: 'updated_at',
+  tableName: 'users',
 });
 
 // Mã hóa mật khẩu trước khi lưu vào DB
-User.beforeCreate(async (user) => {
-  const salt = await bcrypt.genSalt(10);
-  user.password = await bcrypt.hash(user.password, salt);
-});
+const hashPassword = async (user) => {
+  if (user.changed('password')) {
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(user.password, salt);
+  }
+};
+
+User.beforeCreate(hashPassword);
+User.beforeUpdate(hashPassword);
 
 module.exports = User;
