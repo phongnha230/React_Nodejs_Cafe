@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Sidebar } from '../../components/layout/Sidebar.jsx'
 import { useOrderStore } from '../../stores/orderStore.js'
 import { useUsersStore } from '../../stores/usersStore.js'
 import { useNewsStore } from '../../stores/newsStore.js'
 import { useProductStore } from '../../stores/productStore.js'
 import { useActivitiesStore } from '../../stores/activitiesStore.js'
+import { useAuthStore } from '../../stores/authStore.js'
 import tableService from '../../services/tableService.js'
 import { buildQrImageUrl } from '../../utils/tableSession.js'
 import {
@@ -18,6 +18,7 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
   const location = useLocation()
   const navigate = useNavigate()
   const activeTab = getAdminSectionFromPathname(location.pathname)
+  const customerName = useAuthStore((s) => s.customerName)
 
   const [tables, setTables] = useState([])
   const [loadingTables, setLoadingTables] = useState(false)
@@ -245,48 +246,27 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
 
   return (
     <>
-      <Sidebar
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        activeTab={activeTab}
-        onTabChange={handleTabChange}
-      />
-      <div className="container">
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '20px',
-          }}
-        >
-          <h2>Dashboard Quản Lý</h2>
-          <button
-            onClick={() => {
-              if (
-                confirm(
-                  '⚠️ XÓA TOÀN BỘ DỮ LIỆU GIẢ?\n\nHành động này không thể hoàn tác!'
-                )
-              ) {
-                const keys = [
-                  'orders',
-                  'products',
-                  'news',
-                  'customers',
-                  'accounts',
-                  'activities',
-                  'cart',
-                ]
-                keys.forEach((key) => localStorage.removeItem(key))
-                alert('✅ Đã xóa tất cả dữ liệu giả!')
-                window.location.reload()
-              }
-            }}
-            className="btn secondary"
-            style={{ color: '#dc3545', border: '2px solid #dc3545' }}
-          >
-            🗑️ Xóa dữ liệu test
-          </button>
+      <div className="admin-dashboard-container">
+        <div className="admin-page-header">
+          <div className="header-left">
+            <h2 className="page-title">Dashboard Quản Lý</h2>
+            <p className="welcome-text">Chào mừng trở lại, <strong>{customerName || 'Quản trị viên'}</strong></p>
+          </div>
+          <div className="header-actions">
+            <button
+              onClick={() => {
+                if (confirm('⚠️ XÓA TOÀN BỘ DỮ LIỆU GIẢ?\n\nHành động này không thể hoàn tác!')) {
+                  const keys = ['orders', 'products', 'news', 'customers', 'accounts', 'activities', 'cart']
+                  keys.forEach((key) => localStorage.removeItem(key))
+                  alert('✅ Đã xóa tất cả dữ liệu giả!')
+                  window.location.reload()
+                }
+              }}
+              className="btn-delete-test"
+            >
+              🗑️ Xóa dữ liệu test
+            </button>
+          </div>
         </div>
         <Outlet context={outletContext} />
       </div>

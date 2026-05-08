@@ -36,7 +36,13 @@ export function Sidebar({ isOpen, onClose, activeTab, onTabChange }) {
   return (
     <>
       {/* Backdrop */}
-      {isOpen && <div className="sidebar-backdrop" onClick={onClose}></div>}
+      {isOpen && (
+        <div
+          className="sidebar-backdrop"
+          onClick={onClose}
+          style={{ cursor: 'pointer' }}
+        ></div>
+      )}
 
       {/* Sidebar */}
       <div className={`sidebar ${isOpen ? 'open' : ''}`}>

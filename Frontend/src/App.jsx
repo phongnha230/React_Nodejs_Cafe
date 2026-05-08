@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Header } from './components/layout/Header.jsx';
 import { Footer } from './components/layout/Footer.jsx';
 import HomePage from './pages/Home/HomePage.jsx';
@@ -18,51 +18,58 @@ import { CustomerOrders } from './pages/Order/CustomerOrdersPage.jsx';
 import { NotFoundPage } from './pages/NotFound/NotFoundPage.jsx';
 import { useAuthStore } from './stores/authStore.js';
 import { useNotifyStore } from './stores/notifyStore.js';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ROUTES } from './config/routes';
 import { ROLES } from './constants/roles';
+import { getAdminSectionFromPathname, getAdminSectionHref } from './pages/Admin/adminSections';
+import { Sidebar } from './components/layout/Sidebar.jsx';
 
 export default function App() {
   const role = useAuthStore(s => s.role);
   const verifyToken = useAuthStore(s => s.verifyToken);
   const toast = useNotifyStore();
   const location = useLocation();
+  const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isVerifying, setIsVerifying] = useState(true);
+
   const isAdminPage = location.pathname.startsWith(ROUTES.ADMIN);
-  const isHomePage = location.pathname === ROUTES.HOME;
   const isStandaloneAuthPage = location.pathname === ROUTES.LOGIN;
 
-  // Verify token on app startup to maintain persistent login
+  // Xác thực token khi mở app
   useEffect(() => {
+    let isMounted = true;
     const checkAuth = async () => {
       try {
         await verifyToken();
       } catch (error) {
         console.error('Auth verification error:', error);
       } finally {
-        setIsVerifying(false);
+        if (isMounted) setIsVerifying(false);
       }
     };
     checkAuth();
+    return () => { isMounted = false; };
   }, [verifyToken]);
 
-  // Pass sidebar control to AdminDashboard via custom event
+  // Khóa cuộn trang khi mở Sidebar
   useEffect(() => {
-    if (isAdminPage) {
-      const handler = () => setSidebarOpen(true);
-      window.addEventListener('openAdminSidebar', handler);
-      return () => window.removeEventListener('openAdminSidebar', handler);
-    }
-  }, [isAdminPage]);
+    document.body.style.overflow = sidebarOpen ? 'hidden' : '';
+  }, [sidebarOpen]);
 
-  // Show loading while verifying token
+  const handleTabChange = useCallback((section) => {
+    navigate(getAdminSectionHref(section));
+    setSidebarOpen(false);
+  }, [navigate]);
+
+  const activeTab = getAdminSectionFromPathname(location.pathname);
+
   if (isVerifying) {
     return (
-      <div className="app" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '24px', marginBottom: '10px' }}>☕</div>
-          <div>Đang tải...</div>
+      <div className="app-loading">
+        <div className="loading-content">
+          <div className="loading-icon">☕</div>
+          <p>Đang tải...</p>
         </div>
       </div>
     );
@@ -71,41 +78,57 @@ export default function App() {
   return (
     <div className="app">
       {!isStandaloneAuthPage && (
-        <Header onMenuClick={(isAdminPage || isHomePage) ? () => setSidebarOpen(true) : undefined} />
+        <Header onMenuClick={role === ROLES.ADMIN ? () => setSidebarOpen(true) : undefined} />
       )}
-      <Routes>
-        <Route path={ROUTES.HOME} element={<HomePage sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />} />
-        <Route path={ROUTES.CART} element={<CartPage />} />
-        <Route path={ROUTES.MENU} element={<MenuPage />} />
-        <Route path={ROUTES.PRODUCT_REVIEWS(':id')} element={<ProductReviews />} />
-        <Route path={ROUTES.MY_ORDERS} element={<CustomerOrders />} />
-        <Route path={ROUTES.LOGIN} element={<LoginPage />} />
-        <Route
-          path={`${ROUTES.ADMIN}/*`}
-          element={
-            role === ROLES.ADMIN ? (
-              <AdminDashboard
-                sidebarOpen={sidebarOpen}
-                setSidebarOpen={setSidebarOpen}
-              />
-            ) : (
-              <Navigate to={ROUTES.LOGIN} replace />
-            )
-          }
-        >
-          <Route index element={<Navigate to="revenue" replace />} />
-          <Route path="revenue" element={<RevenuePage />} />
-          <Route path="accounts" element={<AccountsPage />} />
-          <Route path="menu" element={<AdminMenuPage />} />
-          <Route path="news" element={<AdminNewsPage />} />
-          <Route path="activities" element={<ActivitiesPage />} />
-          <Route path="orders" element={<OrdersPage />} />
-          <Route path="tables" element={<TablesPage />} />
-          <Route path="*" element={<Navigate to="revenue" replace />} />
-        </Route>
-        <Route path={ROUTES.NOT_FOUND} element={<NotFoundPage />} />
-      </Routes>
-      {!isStandaloneAuthPage && <Footer />}
+
+      {role === ROLES.ADMIN && (
+        <Sidebar
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
+        />
+      )}
+
+      <main className="main-content">
+        <Routes>
+          <Route path={ROUTES.HOME} element={<HomePage sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />} />
+          <Route path={ROUTES.CART} element={<CartPage />} />
+          <Route path={ROUTES.MENU} element={<MenuPage />} />
+          <Route path={ROUTES.PRODUCT_REVIEWS(':id')} element={<ProductReviews />} />
+          <Route path={ROUTES.MY_ORDERS} element={<CustomerOrders />} />
+          <Route path={ROUTES.LOGIN} element={<LoginPage />} />
+
+          <Route
+            path={`${ROUTES.ADMIN}/*`}
+            element={
+              role === ROLES.ADMIN ? (
+                <AdminDashboard
+                  sidebarOpen={sidebarOpen}
+                  setSidebarOpen={setSidebarOpen}
+                />
+              ) : (
+                <Navigate to={ROUTES.LOGIN} replace />
+              )
+            }
+          >
+            <Route index element={<Navigate to="revenue" replace />} />
+            <Route path="revenue" element={<RevenuePage />} />
+            <Route path="accounts" element={<AccountsPage />} />
+            <Route path="menu" element={<AdminMenuPage />} />
+            <Route path="news" element={<AdminNewsPage />} />
+            <Route path="activities" element={<ActivitiesPage />} />
+            <Route path="orders" element={<OrdersPage />} />
+            <Route path="tables" element={<TablesPage />} />
+            <Route path="*" element={<Navigate to="revenue" replace />} />
+          </Route>
+
+          <Route path={ROUTES.NOT_FOUND} element={<NotFoundPage />} />
+        </Routes>
+      </main>
+
+      {!isStandaloneAuthPage && !isAdminPage && <Footer />}
+
       {toast.open && (
         <div className={`toast ${toast.type}`} onClick={toast.hide}>
           <div className="toast-content" onClick={e => e.stopPropagation()}>

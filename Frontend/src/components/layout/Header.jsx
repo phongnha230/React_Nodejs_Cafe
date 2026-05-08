@@ -48,8 +48,13 @@ export function Header({ onMenuClick }) {
     <div className="header">
       <div className="header-top-bar"></div>
       <div className="container header-inner">
-        {isAdmin && onMenuClick && (
-          <button className="hamburger-btn" onClick={onMenuClick}>
+        {isAdmin && (
+          <button
+            className="hamburger-btn"
+            onClick={onMenuClick}
+            title="Mở menu quản lý"
+            aria-label="Toggle Sidebar"
+          >
             <span></span>
             <span></span>
             <span></span>
@@ -124,25 +129,37 @@ export function Header({ onMenuClick }) {
         <div className="header-cta">
           {isGuest ? (
             <Link className="btn login-btn" to={ROUTES.LOGIN}>
-              Login
+              <span className="btn-icon">🔑</span> Đăng nhập
             </Link>
           ) : (
-            <button
-              className="btn login-btn"
-              onClick={() => {
-                toast.show({
-                  message: MESSAGES.CONFIRM.LOGOUT,
-                  type: 'warning',
-                  actionLabel: 'Đăng xuất',
-                  onAction: () => {
-                    logout();
-                    navigate(ROUTES.HOME);
-                  },
-                });
-              }}
-            >
-              Logout ({customerName})
-            </button>
+            <div className="user-profile">
+              <div className="user-info">
+                <div className="user-avatar">
+                  {customerName ? customerName.charAt(0).toUpperCase() : 'A'}
+                </div>
+                <div className="user-details">
+                  <span className="user-name">{customerName || 'Admin'}</span>
+                  <span className="user-role">{isAdmin ? 'Quản trị viên' : 'Khách hàng'}</span>
+                </div>
+              </div>
+              <button
+                className="logout-btn-premium"
+                onClick={() => {
+                  toast.show({
+                    message: MESSAGES.CONFIRM.LOGOUT,
+                    type: 'warning',
+                    actionLabel: 'Đăng xuất',
+                    onAction: () => {
+                      logout();
+                      navigate(ROUTES.HOME);
+                    },
+                  });
+                }}
+                title="Đăng xuất"
+              >
+                🚪
+              </button>
+            </div>
           )}
         </div>
       </div>
