@@ -6,14 +6,40 @@
 const productService = require('../services/productService');
 const { success, error, created, paginated } = require('../utils/responseFormatter');
 const upload = require('../middleware/uploadMiddleware');
+const { cloudinary } = require('../config/cloudinary');
 
 exports.uploadMedia = upload.single('image');
 
-const buildProductPayload = (req) => {
+const buildProductPayload = async (req) => {
   const payload = { ...req.body };
+
+  // 1. Nếu upload qua file (multer)
   if (req.file) {
     payload.image_url = req.file.path;
+    return payload;
   }
+
+  // 2. Nếu gửi qua JSON (base64) - Kiểm tra cả 'image' và 'image_url'
+  const imageSource = req.body.image || req.body.image_url;
+
+  if (imageSource && typeof imageSource === 'string' && imageSource.startsWith('data:image')) {
+    try {
+      console.log('--- Đang đẩy ảnh Base64 lên Cloudinary... ---');
+      const uploadResponse = await cloudinary.v2.uploader.upload(imageSource, {
+        folder: 'cafe_app_uploads',
+      });
+      payload.image_url = uploadResponse.secure_url;
+      console.log('--- Upload thành công! URL:', payload.image_url);
+    } catch (err) {
+      console.error('--- Cloudinary upload lỗi:', err);
+      // Nếu lỗi thì giữ nguyên để dùng database backup (LONGTEXT)
+      payload.image_url = imageSource;
+    }
+  } else if (imageSource) {
+    // Nếu là URL sẵn có hoặc path cũ
+    payload.image_url = imageSource;
+  }
+
   return payload;
 };
 
@@ -22,7 +48,8 @@ const buildProductPayload = (req) => {
  */
 exports.create = async (req, res) => {
   try {
-    const product = await productService.createProduct(buildProductPayload(req));
+    const payload = await buildProductPayload(req);
+    const product = await productService.createProduct(payload);
     res.status(201).json(created(product, 'Product created successfully'));
   } catch (err) {
     if (err.message.includes('required') || err.message.includes('must be')) {
@@ -87,7 +114,8 @@ exports.update = async (req, res) => {
       return res.status(400).json(error('Invalid product ID', 400));
     }
 
-    const product = await productService.updateProduct(id, buildProductPayload(req));
+    const payload = await buildProductPayload(req);
+    const product = await productService.updateProduct(id, payload);
     res.json(success(product, 'Product updated successfully'));
   } catch (err) {
     if (err.message === 'Product not found') {

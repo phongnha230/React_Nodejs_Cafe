@@ -5,6 +5,17 @@ import productService from '../services/productService.js';
 
 const genId = () => (crypto?.randomUUID ? crypto.randomUUID() : `p_${Date.now()}_${Math.random().toString(36).slice(2)}`);
 
+const unwrapProduct = (response) => response?.data?.data ?? response?.data;
+
+const formatProduct = (product) => ({
+  id: product.id,
+  name: product.name,
+  price: parseFloat(product.price),
+  category: product.category,
+  image: product.image_url,
+  is_available: !!product.is_available,
+});
+
 const initial = (() => {
   const saved = storage.get('products');
   if (Array.isArray(saved) && saved.length) return saved;
@@ -22,7 +33,8 @@ export const useProductStore = create((set, get) => ({
     set({ loading: true, error: null });
     try {
       const response = await productService.getAll();
-      const apiProducts = response.data || [];
+      const payload = response.data;
+      const apiProducts = Array.isArray(payload) ? payload : (payload?.data || []);
 
       // Nếu API có dữ liệu, dùng API; nếu không, dùng localStorage
       if (apiProducts.length > 0) {
@@ -62,17 +74,8 @@ export const useProductStore = create((set, get) => ({
         is_available: product.is_available !== undefined ? product.is_available : true,
       });
 
-      const createdProduct = response.data;
-
-      // Format for frontend
-      const formatted = {
-        id: createdProduct.id,
-        name: createdProduct.name,
-        price: parseFloat(createdProduct.price),
-        category: createdProduct.category,
-        image: createdProduct.image_url,
-        is_available: !!createdProduct.is_available,
-      };
+      const createdProduct = unwrapProduct(response);
+      const formatted = formatProduct(createdProduct);
 
       const next = [formatted, ...get().products];
       set({ products: next, loading: false });
@@ -88,15 +91,21 @@ export const useProductStore = create((set, get) => ({
   async update(id, patch) {
     set({ loading: true, error: null });
     try {
-      await productService.update(id, {
-        name: patch.name,
-        price: patch.price,
-        category: patch.category,
-        image_url: patch.image,
-        is_available: patch.is_available,
-      });
+      // Only send fields that are present in the patch
+      const updateData = {};
+      if (patch.name !== undefined) updateData.name = patch.name;
+      if (patch.price !== undefined) updateData.price = patch.price;
+      if (patch.category !== undefined) updateData.category = patch.category;
+      if (patch.image !== undefined) updateData.image_url = patch.image;
+      if (patch.is_available !== undefined) updateData.is_available = patch.is_available;
 
-      const next = get().products.map(p => p.id === id ? { ...p, ...patch } : p);
+      const response = await productService.update(id, updateData);
+      const updatedProduct = unwrapProduct(response);
+      const formatted = updatedProduct ? formatProduct(updatedProduct) : null;
+
+      const next = get().products.map(p => (
+        p.id === id ? (formatted || { ...p, ...patch }) : p
+      ));
       set({ products: next, loading: false });
       storage.set('products', next);
     } catch (error) {
