@@ -1,6 +1,14 @@
 import React, { useState } from 'react'
 
 export function MenuTab({ prodList, addProduct, updateProduct, removeProduct }) {
+  const CATEGORIES = [
+    { value: 'coffee', label: 'Cà phê' },
+    { value: 'tea', label: 'Trà' },
+    { value: 'juice', label: 'Nước ép' },
+    { value: 'cake', label: 'Bánh ngọt' },
+    { value: 'other', label: 'Khác' },
+  ]
+
   const [editingId, setEditingId] = useState(null)
   const [previewImg, setPreviewImg] = useState('')
 
@@ -14,7 +22,7 @@ export function MenuTab({ prodList, addProduct, updateProduct, removeProduct }) 
           const f = e.currentTarget
           const name = f.name.value.trim()
           const price = Number(f.price.value || 0)
-          const category = f.category.value.trim()
+          const category = f.category.value
           const imgFile = f.image.files?.[0]
           let image = f.imageUrl.value.trim()
           if (imgFile) {
@@ -24,7 +32,7 @@ export function MenuTab({ prodList, addProduct, updateProduct, removeProduct }) 
               r.readAsDataURL(imgFile)
             })
           }
-          const isAvailable = f.isAvailable.checked
+          const isAvailable = f.isAvailable.value === 'true'
           if (!name || !category) return
           addProduct({ name, price, category, image, is_available: isAvailable })
           f.reset()
@@ -42,11 +50,12 @@ export function MenuTab({ prodList, addProduct, updateProduct, removeProduct }) 
           placeholder="Giá (đ)"
           className="newsletter-input"
         />
-        <input
-          name="category"
-          placeholder="Loại (coffee/tea/juice/...)"
-          className="newsletter-input"
-        />
+        <select name="category" className="newsletter-input">
+          <option value="">-- Chọn loại --</option>
+          {CATEGORIES.map(c => (
+            <option key={c.value} value={c.value}>{c.label}</option>
+          ))}
+        </select>
         <input
           name="imageUrl"
           placeholder="Ảnh (URL - tùy chọn)"
@@ -92,15 +101,10 @@ export function MenuTab({ prodList, addProduct, updateProduct, removeProduct }) 
             <span className="muted">Xem trước ảnh</span>
           </div>
         )}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '8px 0' }}>
-          <input
-            name="isAvailable"
-            type="checkbox"
-            defaultChecked
-            style={{ width: 18, height: 18 }}
-          />
-          <label>Sẵn sàng bán (Còn hàng)</label>
-        </div>
+        <select name="isAvailable" className="newsletter-input">
+          <option value="true">Còn hàng (Sẵn sàng bán)</option>
+          <option value="false">Hết hàng (Tạm ngưng)</option>
+        </select>
         <button className="btn">Thêm món</button>
       </form>
       <table className="table">
@@ -118,20 +122,48 @@ export function MenuTab({ prodList, addProduct, updateProduct, removeProduct }) 
           {prodList.map((p) => (
             <tr key={p.id}>
               <td>
-                {p.image ? (
-                  <img
-                    src={p.image}
-                    alt={p.name}
-                    style={{
-                      width: 48,
-                      height: 48,
-                      objectFit: 'cover',
-                      borderRadius: 8,
-                    }}
-                  />
-                ) : (
-                  '-'
-                )}
+                <div style={{ position: 'relative', width: 48, height: 48 }}>
+                  {p.image ? (
+                    <img
+                      src={p.image}
+                      alt={p.name}
+                      style={{
+                        width: 48,
+                        height: 48,
+                        objectFit: 'cover',
+                        borderRadius: 8,
+                      }}
+                    />
+                  ) : (
+                    <div style={{ width: 48, height: 48, background: '#eee', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>-</div>
+                  )}
+                  {editingId === p.id && (
+                    <input
+                      type="file"
+                      accept="image/*"
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        opacity: 0,
+                        cursor: 'pointer',
+                      }}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0]
+                        if (file) {
+                          const base64 = await new Promise((res) => {
+                            const r = new FileReader()
+                            r.onload = () => res(r.result)
+                            r.readAsDataURL(file)
+                          })
+                          updateProduct(p.id, { image: base64 })
+                        }
+                      }}
+                    />
+                  )}
+                </div>
               </td>
               <td>
                 {editingId === p.id ? (
@@ -164,33 +196,53 @@ export function MenuTab({ prodList, addProduct, updateProduct, removeProduct }) 
               </td>
               <td>
                 {editingId === p.id ? (
-                  <input
+                  <select
                     defaultValue={p.category}
-                    onBlur={(e) =>
+                    onChange={(e) =>
                       updateProduct(p.id, { category: e.target.value })
                     }
                     className="newsletter-input"
-                  />
+                    style={{ minWidth: '100px' }}
+                  >
+                    {CATEGORIES.map(c => (
+                      <option key={c.value} value={c.value}>{c.label}</option>
+                    ))}
+                  </select>
                 ) : (
-                  p.category
+                  CATEGORIES.find(c => c.value === p.category)?.label || p.category
                 )}
               </td>
               <td>
-                <button
-                  className={`btn ${p.is_available ? '' : 'secondary'}`}
-                  style={{
-                    fontSize: '12px',
-                    padding: '4px 8px',
-                    backgroundColor: p.is_available ? '#4CAF50' : '#f44336',
-                    color: 'white',
-                    border: 'none',
-                  }}
-                  onClick={() =>
-                    updateProduct(p.id, { is_available: !p.is_available })
-                  }
-                >
-                  {p.is_available ? 'Còn hàng' : 'Hết hàng'}
-                </button>
+                {editingId === p.id ? (
+                  <select
+                    defaultValue={p.is_available ? 'true' : 'false'}
+                    onChange={(e) =>
+                      updateProduct(p.id, { is_available: e.target.value === 'true' })
+                    }
+                    className="newsletter-input"
+                    style={{
+                      minWidth: '100px',
+                      color: 'white',
+                      backgroundColor: p.is_available ? '#4CAF50' : '#f44336'
+                    }}
+                  >
+                    <option value="true">Còn hàng</option>
+                    <option value="false">Hết hàng</option>
+                  </select>
+                ) : (
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      padding: '4px 12px',
+                      borderRadius: '12px',
+                      fontSize: '12px',
+                      backgroundColor: p.is_available ? '#4CAF50' : '#f44336',
+                      color: 'white',
+                    }}
+                  >
+                    {p.is_available ? 'Còn hàng' : 'Hết hàng'}
+                  </span>
+                )}
               </td>
               <td style={{ whiteSpace: 'nowrap' }}>
                 {editingId === p.id ? (
