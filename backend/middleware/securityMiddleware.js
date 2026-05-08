@@ -16,7 +16,7 @@ const authLimiter = rateLimit({
 // Rate limiting cho API endpoints chung
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 phút
-  max: 100, // Tối đa 100 requests per window
+  max: 1000, // Tối đa 1000 requests per window (tăng lên cho development/testing)
   message: {
     message: 'Too many requests, please try again later',
     retryAfter: '15 minutes'
