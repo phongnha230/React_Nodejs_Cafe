@@ -7,7 +7,7 @@ npm-debug.log
 .qodo/
 logs/
 uploads/
-scripts/
+# scripts/ (removed from ignore to allow maintenance scripts in container)
 *.sql
 seedProducts.js
 tests/
