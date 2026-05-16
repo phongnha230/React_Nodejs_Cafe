@@ -83,6 +83,24 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
     }
   }, [])
 
+  const createTable = useCallback(async (data) => {
+    await tableService.create(data)
+    await loadTables()
+    await loadQrLinks().catch(() => {})
+  }, [loadTables, loadQrLinks])
+
+  const updateTable = useCallback(async (id, data) => {
+    await tableService.update(id, data)
+    await loadTables()
+    await loadQrLinks().catch(() => {})
+  }, [loadTables, loadQrLinks])
+
+  const removeTable = useCallback(async (id) => {
+    await tableService.delete(id)
+    await loadTables()
+    await loadQrLinks().catch(() => {})
+  }, [loadTables, loadQrLinks])
+
   useEffect(() => {
     loadOrders()
     loadNews()
@@ -237,6 +255,9 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
     tableStats,
     loadingTables,
     loadTables,
+    createTable,
+    updateTable,
+    removeTable,
     qrLinksByTableNumber,
     loadQrLinks,
     printTableQRCodes,

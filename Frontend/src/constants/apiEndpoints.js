@@ -34,6 +34,9 @@ export const API_ENDPOINTS = {
     LIST: '/tables',
     QR_LINKS: '/tables/qr-links',
     DETAIL: (id) => `/tables/${id}`,
+    CREATE: '/tables',
+    UPDATE: (id) => `/tables/${id}`,
+    DELETE: (id) => `/tables/${id}`,
   },
   PAYMENTS: {
     LIST: '/payments',

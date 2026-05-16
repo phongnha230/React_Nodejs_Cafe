@@ -7,6 +7,9 @@ export function TablesPage() {
     tableStats,
     loadingTables,
     loadTables,
+    createTable,
+    updateTable,
+    removeTable,
     qrLinksByTableNumber,
     loadQrLinks,
     printTableQRCodes,
@@ -20,6 +23,9 @@ export function TablesPage() {
       tableStats={tableStats}
       loadingTables={loadingTables}
       loadTables={loadTables}
+      createTable={createTable}
+      updateTable={updateTable}
+      removeTable={removeTable}
       qrLinksByTableNumber={qrLinksByTableNumber}
       loadQrLinks={loadQrLinks}
       printTableQRCodes={printTableQRCodes}

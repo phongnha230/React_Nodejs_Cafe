@@ -1,11 +1,21 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { buildQrImageUrl } from '../../../utils/tableSession.js'
+
+const TABLE_STATUSES = [
+  { value: 'available', label: 'Trong' },
+  { value: 'occupied', label: 'Dang co khach' },
+  { value: 'reserved', label: 'Da dat' },
+  { value: 'inactive', label: 'Tam khoa' },
+]
 
 export function TablesTab({
   sortedTables,
   tableStats,
   loadingTables,
   loadTables,
+  createTable,
+  updateTable,
+  removeTable,
   qrLinksByTableNumber,
   loadQrLinks,
   printTableQRCodes,
@@ -13,13 +23,97 @@ export function TablesTab({
   onViewOrders
 }) {
   const getTableStatusText = (status) => {
-    const statuses = {
-      available: 'Trong',
-      occupied: 'Dang co khach',
-      reserved: 'Da dat',
-      inactive: 'Tam khoa',
+    return TABLE_STATUSES.find((item) => item.value === status)?.label || status || 'Khong ro'
+  }
+
+  const [editingId, setEditingId] = useState(null)
+  const [editingNumber, setEditingNumber] = useState('')
+  const [savingTableId, setSavingTableId] = useState(null)
+
+  const nextTableNumber = sortedTables.reduce(
+    (max, table) => Math.max(max, Number(table.table_number) || 0),
+    0
+  ) + 1
+
+  const getErrorMessage = (error) => (
+    error?.response?.data?.message ||
+    error?.response?.data?.errors ||
+    error?.message ||
+    'Thao tac that bai'
+  )
+
+  const handleCreateTable = async (event) => {
+    event.preventDefault()
+    const form = event.currentTarget
+    const tableNumber = Number(form.table_number.value)
+    const status = form.status.value
+
+    if (!Number.isInteger(tableNumber) || tableNumber <= 0) {
+      alert('So ban phai la so nguyen duong')
+      return
     }
-    return statuses[status] || status || 'Khong ro'
+
+    try {
+      setSavingTableId('new')
+      await createTable({ table_number: tableNumber, status })
+      form.reset()
+      form.table_number.value = String(tableNumber + 1)
+    } catch (error) {
+      alert(getErrorMessage(error))
+    } finally {
+      setSavingTableId(null)
+    }
+  }
+
+  const handleUpdateStatus = async (table, status) => {
+    try {
+      setSavingTableId(table.id)
+      await updateTable(table.id, { status })
+    } catch (error) {
+      alert(getErrorMessage(error))
+    } finally {
+      setSavingTableId(null)
+    }
+  }
+
+  const startEditing = (table) => {
+    setEditingId(table.id)
+    setEditingNumber(String(table.table_number))
+  }
+
+  const saveTableNumber = async (table) => {
+    const tableNumber = Number(editingNumber)
+
+    if (!Number.isInteger(tableNumber) || tableNumber <= 0) {
+      alert('So ban phai la so nguyen duong')
+      return
+    }
+
+    try {
+      setSavingTableId(table.id)
+      await updateTable(table.id, { table_number: tableNumber })
+      setEditingId(null)
+      setEditingNumber('')
+    } catch (error) {
+      alert(getErrorMessage(error))
+    } finally {
+      setSavingTableId(null)
+    }
+  }
+
+  const handleDeleteTable = async (table) => {
+    if (!confirm(`Xoa Ban ${table.table_number}? Ban da co order se khong xoa duoc, hay chuyen sang Tam khoa.`)) {
+      return
+    }
+
+    try {
+      setSavingTableId(table.id)
+      await removeTable(table.id)
+    } catch (error) {
+      alert(getErrorMessage(error))
+    } finally {
+      setSavingTableId(null)
+    }
   }
 
   return (
@@ -78,6 +172,31 @@ export function TablesTab({
         </div>
       </div>
 
+      <form
+        className="newsletter-form table-admin-form"
+        onSubmit={handleCreateTable}
+        style={{ marginTop: '20px' }}
+      >
+        <input
+          name="table_number"
+          type="number"
+          min="1"
+          defaultValue={nextTableNumber}
+          placeholder="So ban"
+          className="newsletter-input"
+        />
+        <select name="status" className="newsletter-input" defaultValue="available">
+          {TABLE_STATUSES.map((status) => (
+            <option key={status.value} value={status.value}>
+              {status.label}
+            </option>
+          ))}
+        </select>
+        <button className="btn" disabled={savingTableId === 'new'}>
+          {savingTableId === 'new' ? 'Dang them...' : 'Them ban'}
+        </button>
+      </form>
+
       {loadingTables ? (
         <div style={{ textAlign: 'center', padding: '20px' }}>
           <p>Dang tai danh sach ban...</p>
@@ -127,13 +246,39 @@ export function TablesTab({
                           >
                             {table.table_number}
                           </div>
-                          <strong>Ban {table.table_number}</strong>
+                          {editingId === table.id ? (
+                            <input
+                              type="number"
+                              min="1"
+                              value={editingNumber}
+                              onChange={(event) => setEditingNumber(event.target.value)}
+                              className="newsletter-input"
+                              style={{ width: '110px', minHeight: '38px' }}
+                            />
+                          ) : (
+                            <strong>Ban {table.table_number}</strong>
+                          )}
                         </div>
                       </td>
                       <td>
-                        <span className={`table-state-badge ${table.status}`}>
-                          {getTableStatusText(table.status)}
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <span className={`table-state-badge ${table.status}`}>
+                            {getTableStatusText(table.status)}
+                          </span>
+                          <select
+                            className="newsletter-input"
+                            value={table.status}
+                            disabled={savingTableId === table.id}
+                            onChange={(event) => handleUpdateStatus(table, event.target.value)}
+                            style={{ minWidth: '145px', minHeight: '38px', padding: '8px 10px' }}
+                          >
+                            {TABLE_STATUSES.map((status) => (
+                              <option key={status.value} value={status.value}>
+                                {status.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       </td>
                       <td>
                         {activeOrders.length > 0 ? (
@@ -223,13 +368,53 @@ export function TablesTab({
                         </div>
                       </td>
                       <td>
-                        <button
-                          className="btn secondary"
-                          style={{ fontSize: '12px', padding: '6px 12px' }}
-                          onClick={() => onViewOrders(table.id)}
-                        >
-                          Xem don
-                        </button>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                          {editingId === table.id ? (
+                            <>
+                              <button
+                                className="btn"
+                                style={{ fontSize: '12px', padding: '6px 12px' }}
+                                onClick={() => saveTableNumber(table)}
+                                disabled={savingTableId === table.id}
+                              >
+                                Luu
+                              </button>
+                              <button
+                                className="btn secondary"
+                                style={{ fontSize: '12px', padding: '6px 12px' }}
+                                onClick={() => {
+                                  setEditingId(null)
+                                  setEditingNumber('')
+                                }}
+                              >
+                                Huy
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              className="btn"
+                              style={{ fontSize: '12px', padding: '6px 12px' }}
+                              onClick={() => startEditing(table)}
+                            >
+                              Sua
+                            </button>
+                          )}
+                          <button
+                            className="btn secondary"
+                            style={{ fontSize: '12px', padding: '6px 12px' }}
+                            onClick={() => onViewOrders(table.id)}
+                          >
+                            Xem don
+                          </button>
+                          <button
+                            className="btn secondary"
+                            style={{ fontSize: '12px', padding: '6px 12px', color: '#b91c1c' }}
+                            onClick={() => handleDeleteTable(table)}
+                            disabled={savingTableId === table.id}
+                          >
+                            Xoa
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )
