@@ -31,7 +31,7 @@ export default function App() {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isVerifying, setIsVerifying] = useState(true);
+  const [isVerifying, setIsVerifying] = useState(false);
 
   const isAdminPage = location.pathname.startsWith(ROUTES.ADMIN);
   const isStandaloneAuthPage = location.pathname === ROUTES.LOGIN;
@@ -64,6 +64,8 @@ export default function App() {
 
   const activeTab = getAdminSectionFromPathname(location.pathname);
 
+  const isCartPage = location.pathname === ROUTES.CART;
+
   if (isVerifying) {
     return (
       <div className="app-loading">
@@ -76,7 +78,7 @@ export default function App() {
   }
 
   return (
-    <div className="app">
+    <div className={`app ${isAdminPage ? 'admin-theme' : ''}`}>
       {!isStandaloneAuthPage && (
         <Header onMenuClick={role === ROLES.ADMIN ? () => setSidebarOpen(true) : undefined} />
       )}
@@ -127,7 +129,7 @@ export default function App() {
         </Routes>
       </main>
 
-      {!isStandaloneAuthPage && !isAdminPage && <Footer />}
+      {!isStandaloneAuthPage && !isAdminPage && !isCartPage && <Footer />}
 
       {toast.open && (
         <div className={`toast ${toast.type}`} onClick={toast.hide}>

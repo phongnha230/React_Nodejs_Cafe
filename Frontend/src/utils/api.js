@@ -4,6 +4,7 @@ import { config } from '../config/env';
 const api = axios.create({
   baseURL: config.API_BASE_URL,
   withCredentials: true,
+  timeout: 8000,
 });
 
 // Nếu bạn có token, có thể gắn interceptor ở đây
