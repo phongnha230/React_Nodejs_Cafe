@@ -18,26 +18,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # ========== Backend API ==========
-  backend:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: cafe_backend
-    environment:
-      - DB_URL=mysql://${DB_USER}:${DB_PASSWORD}@mysql:3306/${DB_NAME}
-      - JWT_SECRET=${JWT_SECRET}
-      - PORT=${PORT}
-      - FRONTEND_URL=${FRONTEND_URL}
-    ports:
-      - "${PORT}:${PORT}"
-    depends_on:
-      mysql:
-        condition: service_healthy
-    networks:
-      - cafe_network
-    restart: unless-stopped
-
 networks:
   cafe_network:
     driver: bridge
