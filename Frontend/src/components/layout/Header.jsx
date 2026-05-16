@@ -8,7 +8,11 @@ import { ROUTES } from '../../config/routes';
 import { MESSAGES } from '../../constants/messages';
 
 export function Header({ onMenuClick }) {
-  const count = useCartStore((s) => s.items.reduce((n, i) => n + i.quantity, 0));
+  const count = useCartStore((s) => (
+    Array.isArray(s.items)
+      ? s.items.reduce((n, i) => n + (Number(i.quantity) || 0), 0)
+      : 0
+  ));
   const { logout, customerName, isAdmin, isCustomer, isGuest } = useAuth();
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState('');

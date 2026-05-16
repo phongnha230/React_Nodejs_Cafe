@@ -1222,6 +1222,58 @@ html,
   border-top: 1px solid #e2e8f0;
 }
 
+.summary-total-row {
+  padding-top: 12px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.table-summary-row {
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.summary-table-control {
+  width: min(320px, 55%);
+}
+
+.summary-table-select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f7fafc;
+  color: #1a202c;
+  font-size: 15px;
+  box-sizing: border-box;
+}
+
+.summary-table-select:focus {
+  outline: none;
+  border-color: #38b2ac;
+  box-shadow: 0 0 0 3px rgba(56, 178, 172, 0.1);
+}
+
+.summary-table-select:disabled,
+.checkout-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.table-helper-text {
+  margin: 8px 0 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.table-helper-text.success {
+  color: #0f766e;
+}
+
+.table-helper-text.error {
+  color: #b91c1c;
+}
+
 .summary-input {
   width: 60px;
   padding: 8px;
@@ -1253,6 +1305,11 @@ html,
 .checkout-btn:hover {
   background: #319795;
   transform: translateY(-2px);
+}
+
+.checkout-btn:disabled:hover {
+  background: #38b2ac;
+  transform: none;
 }
 
 .empty-cart {
@@ -1297,6 +1354,11 @@ html,
   resize: vertical;
   min-height: 80px;
   box-sizing: border-box;
+}
+
+.address-input.table-select {
+  min-height: auto;
+  resize: none;
 }
 
 .address-input:focus {

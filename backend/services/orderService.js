@@ -63,13 +63,19 @@ class OrderService {
             transaction
         });
 
-        await Table.update(
-            { status: activeOrders > 0 ? 'occupied' : 'available' },
-            {
-                where: { id: tableId },
-                transaction
-            }
-        );
+        const table = await Table.findByPk(tableId, { transaction });
+        if (!table) return;
+
+        if (activeOrders > 0) {
+            await table.update({ status: 'occupied' }, { transaction });
+            return;
+        }
+
+        if (['reserved', 'inactive'].includes(table.status)) {
+            return;
+        }
+
+        await table.update({ status: 'available' }, { transaction });
     }
 
     /**

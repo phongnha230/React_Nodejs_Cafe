@@ -35,15 +35,31 @@ export function CartPage() {
   const qrTableNumber = Number(qrTableSession?.tableNumber || 0);
   const qrTimestamp = Number(qrTableSession?.ts || 0);
   const qrSignature = qrTableSession?.sig || null;
-  const availableTables = tables.filter((table) => table.status === 'available');
+  const orderableTables = tables.filter((table) => ['available', 'occupied'].includes(table.status));
   const qrMatchedTable = qrTableNumber > 0
     ? tables.find((table) => Number(table.table_number) === qrTableNumber)
     : null;
   const isQrMode = Boolean(qrMatchedTable);
   const selectableTables = isQrMode
     ? tables.filter((table) => table.id === qrMatchedTable?.id)
-    : availableTables;
+    : orderableTables;
   const selectedTable = selectableTables.find((table) => String(table.id) === String(selectedTableId));
+
+  const renderTableOptions = () => {
+    if (tablesLoading) {
+      return <option value="">Dang tai danh sach ban...</option>;
+    }
+
+    if (selectableTables.length === 0) {
+      return <option value="">Chua co ban nhan order</option>;
+    }
+
+    return selectableTables.map((table) => (
+      <option key={table.id} value={table.id}>
+        Ban {table.table_number}
+      </option>
+    ));
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -72,12 +88,18 @@ export function CartPage() {
           return;
         }
 
-        if (apiTables.length > 0) {
-          const firstAvailableTable = apiTables.find((table) => table.status === 'available');
-          if (firstAvailableTable) {
-            setSelectedTableId((current) => current || String(firstAvailableTable.id));
+        const firstOrderableTable = apiTables.find((table) => ['available', 'occupied'].includes(table.status));
+        setSelectedTableId((current) => {
+          const currentIsOrderable = apiTables.some(
+            (table) => ['available', 'occupied'].includes(table.status) && String(table.id) === String(current)
+          );
+
+          if (currentIsOrderable) {
+            return current;
           }
-        }
+
+          return firstOrderableTable ? String(firstOrderableTable.id) : '';
+        });
       } catch (error) {
         console.error('Load tables failed:', error);
       } finally {
@@ -129,8 +151,12 @@ export function CartPage() {
 
   const checkout = () => {
     if (items.length === 0) return;
-    if (!isQrMode && availableTables.length === 0) {
-      alert('Chua co ban nao trong he thong');
+    if (!isQrMode && orderableTables.length === 0) {
+      alert('Chua co ban nao co the nhan order');
+      return;
+    }
+    if (!selectedTable) {
+      alert('Vui long chon ban');
       return;
     }
     setQrError('');
@@ -276,16 +302,12 @@ export function CartPage() {
             <div className="address-section">
               <label className="address-label">Chon so ban:</label>
               <select
-                className="address-input"
+                className="address-input table-select"
                 value={selectedTableId}
                 onChange={(event) => setSelectedTableId(event.target.value)}
                 disabled={tablesLoading || selectableTables.length === 0 || isQrMode}
               >
-                {selectableTables.map((table) => (
-                  <option key={table.id} value={table.id}>
-                    Ban {table.table_number}
-                  </option>
-                ))}
+                {renderTableOptions()}
               </select>
               {isQrMode && selectedTable && (
                 <p style={{ marginTop: '8px', color: '#0f766e', fontSize: '14px' }}>
@@ -443,15 +465,48 @@ export function CartPage() {
                 className="summary-input"
               />
             </div>
-            <div className="summary-row">
+            <div className="summary-row summary-total-row">
               <label>Tong tien:</label>
               <div className="total-amount">
                 {total.toLocaleString('vi-VN')}d
               </div>
             </div>
+            <div className="summary-row table-summary-row">
+              <label htmlFor="cart-table-select">Ban:</label>
+              <div className="summary-table-control">
+                <select
+                  id="cart-table-select"
+                  className="summary-table-select"
+                  value={selectedTableId}
+                  onChange={(event) => setSelectedTableId(event.target.value)}
+                  disabled={tablesLoading || selectableTables.length === 0 || isQrMode}
+                >
+                  {renderTableOptions()}
+                </select>
+                {isQrMode && selectedTable && (
+                  <p className="table-helper-text success">
+                    QR dang khoa vao Ban {selectedTable.table_number}.
+                  </p>
+                )}
+                {!isQrMode && !tablesLoading && selectedTable && (
+                  <p className="table-helper-text">
+                    Don nay se gan vao Ban {selectedTable.table_number}.
+                  </p>
+                )}
+                {!isQrMode && !tablesLoading && selectableTables.length === 0 && (
+                  <p className="table-helper-text error">
+                    Hien chua co ban nao co the nhan order.
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
 
-          <button className="checkout-btn" onClick={checkout}>
+          <button
+            className="checkout-btn"
+            onClick={checkout}
+            disabled={tablesLoading || !selectedTable}
+          >
             Thanh toan
           </button>
         </>

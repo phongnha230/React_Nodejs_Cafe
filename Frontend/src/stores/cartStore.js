@@ -13,7 +13,24 @@ function getCartKey() {
   return 'cart_guest';
 }
 
-const initial = storage.get(getCartKey(), []);
+function normalizeCartItems(value) {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map((item) => ({
+      productId: item?.productId,
+      quantity: Number(item?.quantity) || 0,
+    }))
+    .filter((item) => item.productId !== undefined && item.productId !== null && item.quantity > 0);
+}
+
+function readCartItems() {
+  const items = normalizeCartItems(storage.get(getCartKey(), []));
+  storage.set(getCartKey(), items);
+  return items;
+}
+
+const initial = readCartItems();
 
 export const useCartStore = create((set, get) => ({
   items: initial,
@@ -30,8 +47,7 @@ export const useCartStore = create((set, get) => ({
   },
   clear() { set({ items: [] }); storage.set(getCartKey(), []); },
   reloadFromStorage() {
-    const items = storage.get(getCartKey(), []);
-    set({ items });
+    set({ items: readCartItems() });
   },
   total() {
     const prods = useProductStore.getState().products;
