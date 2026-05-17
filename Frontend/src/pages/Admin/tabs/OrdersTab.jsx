@@ -1,5 +1,6 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { getPaymentMethodName, getOrderTableNumber, getOrderPayment } from './utils.js'
+import { Pagination } from '../../../components/common/Pagination.jsx'
 
 export function OrdersTab({ 
   filteredOrders, 
@@ -9,6 +10,18 @@ export function OrdersTab({
   setSelectedOrderTableFilter, 
   sortedTables 
 }) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filteredOrders]);
+
+  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
+  const currentOrders = filteredOrders.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
   return (
     <div className="dashboard-section">
       <div
@@ -72,7 +85,7 @@ export function OrdersTab({
           </tr>
         </thead>
         <tbody>
-          {filteredOrders.map((o) => (
+          {currentOrders.map((o) => (
             <tr key={o.id}>
               <td>{new Date(o.createdAt).toLocaleString('vi-VN')}</td>
               <td>{o.customerName}</td>
@@ -120,6 +133,14 @@ export function OrdersTab({
           ))}
         </tbody>
       </table>
+
+      {totalPages > 1 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+        />
+      )}
     </div>
   )
 }

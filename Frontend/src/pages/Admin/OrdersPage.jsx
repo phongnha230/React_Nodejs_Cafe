@@ -98,9 +98,23 @@ export function OrdersPage() {
               </div>
               <div className="order-items">
                 {detailOrder.items.map((item, index) => {
+                  const itemProduct = item.product || item.Product || null
                   const product = prodList.find(
                     (entry) => Number(entry.id) === Number(item.productId)
                   )
+                  const productName =
+                    product?.name ||
+                    itemProduct?.name ||
+                    item.productName ||
+                    `Sản phẩm #${item.productId || item.product_id}`
+                  const productImage =
+                    product?.image ||
+                    itemProduct?.image_url ||
+                    item.productImage
+                  const lineTotal =
+                    Number(item.subtotal) ||
+                    (Number(item.unitPrice ?? item.unit_price ?? product?.price ?? itemProduct?.price ?? 0) *
+                      Number(item.quantity || 1))
 
                   return (
                     <div
@@ -108,18 +122,16 @@ export function OrdersPage() {
                       key={`${item.productId}-${index}`}
                     >
                       <div className="order-item-left">
-                        {product?.image && (
-                          <img src={product.image} alt={product?.name} />
+                        {productImage && (
+                          <img src={productImage} alt={productName} />
                         )}
                         <div className="order-item-name">
-                          {product?.name || item.productId}
+                          {productName}
                         </div>
                       </div>
                       <div className="order-item-qty">x{item.quantity}</div>
                       <div className="order-item-price">
-                        {((product?.price || 0) * item.quantity).toLocaleString(
-                          'vi-VN'
-                        )}
+                        {lineTotal.toLocaleString('vi-VN')}
                         đ
                       </div>
                     </div>

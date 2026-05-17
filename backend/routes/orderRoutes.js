@@ -5,7 +5,7 @@ const allow = require('../middleware/roleMiddleware');
 const { validateOrderCreation, validateId, validatePagination } = require('../middleware/validationMiddleware');
 
 // List orders (with pagination and filtering)
-router.get('/', authMW, allow('admin', 'customer'), validatePagination, oc.listOrders);
+router.get('/', authMW, allow('admin', 'customer', 'staff', 'barista'), validatePagination, oc.listOrders);
 
 // Create order
 router.post('/', authMW, allow('admin', 'customer'), validateOrderCreation, oc.createOrder);
@@ -14,9 +14,9 @@ router.post('/', authMW, allow('admin', 'customer'), validateOrderCreation, oc.c
 router.post('/guest', validateOrderCreation, oc.createGuestOrder);
 
 // Get order by id
-router.get('/:id', authMW, allow('admin', 'customer'), validateId, oc.getOrderById);
+router.get('/:id', authMW, allow('admin', 'customer', 'staff', 'barista'), validateId, oc.getOrderById);
 
-// Update order status (admin only)
-router.put('/:id/status', authMW, allow('admin'), validateId, oc.updateOrderStatus);
+// Update order status (admin, staff, barista)
+router.put('/:id/status', authMW, allow('admin', 'staff', 'barista'), validateId, oc.updateOrderStatus);
 
 module.exports = router;

@@ -4,6 +4,7 @@ import { useAuth } from '../../hooks/useAuth.js';
 import { useNotifyStore } from '../../stores/notifyStore.js';
 import { useProductStore } from '../../stores/productStore.js';
 import { useReviewStore } from '../../stores/reviewStore.js';
+import { useVoucherStore } from '../../stores/voucherStore.js';
 import { RateProductModal } from '../../components/common/RateProductModal.jsx';
 
 const getPaymentMethodLabel = (order) => {
@@ -19,16 +20,36 @@ const isCompletedOrder = (order) => (
   order.status === 'delivered' || order.status === 'paid'
 );
 
+const isVideoMedia = (url = '') => (
+  url.includes('/video/upload/') || /\.(mp4|mov|webm|mkv|avi)(\?|$)/i.test(url)
+);
+
+const getReviewUserName = (review = {}) => (
+  review.userName ||
+  review.customerName ||
+  review.customer_name ||
+  review.User?.username ||
+  review.user?.username ||
+  null
+);
+
 export function CustomerOrders() {
   const orders = useOrderStore((s) => s.orders);
   const loadFromAPI = useOrderStore((s) => s.loadFromAPI);
   const { customerName, isCustomer } = useAuth();
   const products = useProductStore((s) => s.products);
+  const reviews = useReviewStore((s) => s.reviews);
   const getReview = useReviewStore((s) => s.getReview);
   const loadReviews = useReviewStore((s) => s.loadFromAPI);
   const [openRate, setOpenRate] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedReview, setSelectedReview] = useState(null);
+  const coins = useVoucherStore((s) => s.coins);
+  const vouchers = useVoucherStore((s) => s.vouchers);
+  const walletVouchers = useVoucherStore((s) => s.walletVouchers);
+  const loadVouchers = useVoucherStore((s) => s.loadVouchers);
+  const loadWallet = useVoucherStore((s) => s.loadWallet);
+  const redeemVoucher = useVoucherStore((s) => s.redeem);
 
   const toast = useNotifyStore();
   const prevMapRef = useRef(new Map());
@@ -36,7 +57,11 @@ export function CustomerOrders() {
   useEffect(() => {
     loadFromAPI();
     loadReviews();
-  }, [loadFromAPI, loadReviews]);
+    if (isCustomer) {
+      loadVouchers();
+      loadWallet();
+    }
+  }, [isCustomer, loadFromAPI, loadReviews, loadVouchers, loadWallet]);
 
   const myOrders = useMemo(() => (
     isCustomer ? orders : []
@@ -81,18 +106,65 @@ export function CustomerOrders() {
       }
       return acc;
     }, []);
-  }, [customerName, getReview, myOrders]);
+  }, [customerName, getReview, myOrders, reviews]);
 
   const myReviews = useMemo(() => {
-    const reviews = useReviewStore.getState().reviews;
     return reviews.filter(
-      (review) => review.userName === customerName || review.User?.username === customerName
+      (review) => getReviewUserName(review) === customerName
     );
-  }, [customerName]);
+  }, [customerName, reviews]);
 
   return (
     <div className="container">
       <h2>Đơn của tôi</h2>
+      {isCustomer && (
+        <div className="dashboard-section" style={{ marginBottom: 16 }}>
+          <h3>Ví xu và voucher</h3>
+          <p style={{ fontWeight: 700 }}>Xu hiện có: {coins.toLocaleString('vi-VN')}</p>
+          <div className="order-items">
+            {vouchers.filter((voucher) => voucher.type === 'coin_exchange').map((voucher) => (
+              <div key={voucher.id} className="order-item">
+                <div>
+                  <div className="order-item-name">{voucher.name}</div>
+                  <div style={{ color: '#6b7280', fontSize: 14 }}>
+                    Cần {Number(voucher.coin_cost || 0).toLocaleString('vi-VN')} xu - Mã {voucher.code}
+                  </div>
+                </div>
+                <button
+                  className="btn"
+                  disabled={coins < Number(voucher.coin_cost || 0)}
+                  onClick={async () => {
+                    try {
+                      await redeemVoucher(voucher.id);
+                      alert('Đổi voucher thành công');
+                    } catch (error) {
+                      alert('Đổi voucher thất bại: ' + (error.response?.data?.message || error.message));
+                    }
+                  }}
+                >
+                  Đổi voucher
+                </button>
+              </div>
+            ))}
+          </div>
+          {walletVouchers.filter((entry) => !entry.is_used && entry.voucher).length > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <strong>Voucher đang có:</strong>
+              <div className="order-items" style={{ marginTop: 8 }}>
+                {walletVouchers.filter((entry) => !entry.is_used && entry.voucher).map((entry) => (
+                  <div key={entry.id} className="order-item">
+                    <div>
+                      <div className="order-item-name">{entry.voucher.name}</div>
+                      <div style={{ color: '#6b7280', fontSize: 14 }}>Mã {entry.voucher.code}</div>
+                    </div>
+                    <span className="status-badge delivered">Sẵn sàng dùng</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
       {myOrders.length === 0 ? (
         <div className="empty-cart">Bạn chưa có đơn hàng nào.</div>
       ) : (
@@ -213,6 +285,23 @@ export function CustomerOrders() {
                   {review.comment && (
                     <div style={{ color: '#555', fontStyle: 'italic', paddingLeft: 62 }}>
                       "{review.comment}"
+                    </div>
+                  )}
+                  {(review.media_url || review.mediaUrl) && (
+                    <div style={{ paddingLeft: 62 }}>
+                      {isVideoMedia(review.media_url || review.mediaUrl) ? (
+                        <video
+                          src={review.media_url || review.mediaUrl}
+                          controls
+                          style={{ width: '100%', maxWidth: 320, maxHeight: 180, borderRadius: 10, objectFit: 'cover' }}
+                        />
+                      ) : (
+                        <img
+                          src={review.media_url || review.mediaUrl}
+                          alt='Review media'
+                          style={{ width: '100%', maxWidth: 320, maxHeight: 180, borderRadius: 10, objectFit: 'cover' }}
+                        />
+                      )}
                     </div>
                   )}
                   <div style={{ display: 'flex', gap: 8, paddingLeft: 62 }}>

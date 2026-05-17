@@ -1,15 +1,44 @@
 import { useEffect, useState } from 'react';
+import { CreditCard, Minus, Plus, QrCode, ReceiptText, ShoppingCart, Trash2, WalletCards } from 'lucide-react';
 import { useCartStore } from '../../stores/cartStore.js';
 import { useAuth } from '../../hooks/useAuth.js';
 import { useOrderStore } from '../../stores/orderStore.js';
 import paymentService from '../../services/paymentService.js';
 import tableService from '../../services/tableService.js';
+import { useVoucherStore } from '../../stores/voucherStore.js';
 import { clearTableSession, getTableSession } from '../../utils/tableSession.js';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 
 const genId = () =>
   crypto?.randomUUID
     ? crypto.randomUUID()
     : `o_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+
+const fieldClass =
+  'w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 disabled:cursor-not-allowed disabled:opacity-60';
+
+function Field({ label, children, hint, tone = 'default' }) {
+  return (
+    <div className="mb-6 text-left">
+      <label className="mb-2 block font-semibold text-slate-700">{label}</label>
+      {children}
+      {hint && (
+        <p
+          className={cn(
+            'mt-2 text-sm leading-relaxed',
+            tone === 'success' && 'text-teal-700',
+            tone === 'error' && 'text-red-700',
+            tone === 'default' && 'text-slate-500'
+          )}
+        >
+          {hint}
+        </p>
+      )}
+    </div>
+  );
+}
 
 export function CartPage() {
   const items = useCartStore((state) => state.detailed());
@@ -17,13 +46,19 @@ export function CartPage() {
   const add = useCartStore((state) => state.add);
   const remove = useCartStore((state) => state.remove);
   const clear = useCartStore((state) => state.clear);
-  const { customerName, isCustomer } = useAuth();
-  const displayName = customerName ?? 'Khach vang lai';
+  const { customerName, isAdmin, isCustomer, isGuest } = useAuth();
+  const displayName = customerName ?? 'Khách vãng lai';
+  const isAuthenticatedOrder = isAdmin || isCustomer;
   const place = useOrderStore((state) => state.place);
   const placeGuest = useOrderStore((state) => state.placeGuest);
+  const coins = useVoucherStore((state) => state.coins);
+  const walletVouchers = useVoucherStore((state) => state.walletVouchers);
+  const loadWallet = useVoucherStore((state) => state.loadWallet);
 
   const [showPayment, setShowPayment] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState('direct');
+  const [voucherCode, setVoucherCode] = useState('');
+  const [selectedUserVoucherId, setSelectedUserVoucherId] = useState('');
   const [tables, setTables] = useState([]);
   const [tablesLoading, setTablesLoading] = useState(false);
   const [selectedTableId, setSelectedTableId] = useState('');
@@ -36,27 +71,50 @@ export function CartPage() {
   const qrTimestamp = Number(qrTableSession?.ts || 0);
   const qrSignature = qrTableSession?.sig || null;
   const orderableTables = tables.filter((table) => ['available', 'occupied'].includes(table.status));
+  const hasQrSession = qrTableNumber > 0 && Number.isInteger(qrTimestamp) && qrTimestamp > 0 && Boolean(qrSignature);
   const qrMatchedTable = qrTableNumber > 0
     ? tables.find((table) => Number(table.table_number) === qrTableNumber)
     : null;
-  const isQrMode = Boolean(qrMatchedTable);
+  const isQrMode = isGuest && hasQrSession && Boolean(qrMatchedTable);
   const selectableTables = isQrMode
     ? tables.filter((table) => table.id === qrMatchedTable?.id)
     : orderableTables;
   const selectedTable = selectableTables.find((table) => String(table.id) === String(selectedTableId));
+  const usableWalletVouchers = walletVouchers.filter((entry) => !entry.is_used && entry.voucher);
+  const selectedWalletVoucher = usableWalletVouchers.find(
+    (entry) => String(entry.id) === String(selectedUserVoucherId)
+  );
+
+  const estimateWalletDiscount = (entry) => {
+    const voucher = entry?.voucher;
+    if (!voucher || total < Number(voucher.min_order_amount || 0)) return 0;
+    let discount = 0;
+    if (voucher.discount_type === 'percent') {
+      discount = total * (Number(voucher.discount_value || 0) / 100);
+      if (voucher.max_discount_amount) {
+        discount = Math.min(discount, Number(voucher.max_discount_amount));
+      }
+    } else {
+      discount = Number(voucher.discount_value || 0);
+    }
+    return Math.min(total, Math.max(0, Math.floor(discount)));
+  };
+
+  const estimatedDiscount = selectedWalletVoucher ? estimateWalletDiscount(selectedWalletVoucher) : 0;
+  const estimatedTotal = Math.max(0, total - estimatedDiscount);
 
   const renderTableOptions = () => {
     if (tablesLoading) {
-      return <option value="">Dang tai danh sach ban...</option>;
+      return <option value="">Đang tải danh sách bàn...</option>;
     }
 
     if (selectableTables.length === 0) {
-      return <option value="">Chua co ban nhan order</option>;
+      return <option value="">Chưa có bàn nhận order</option>;
     }
 
     return selectableTables.map((table) => (
       <option key={table.id} value={table.id}>
-        Ban {table.table_number}
+        Bàn {table.table_number}
       </option>
     ));
   };
@@ -75,15 +133,15 @@ export function CartPage() {
 
         setTables(apiTables);
 
-        if (qrTableNumber > 0) {
+        if (isGuest && qrTableNumber > 0) {
           const matchedTable = apiTables.find((table) => Number(table.table_number) === qrTableNumber);
           if (matchedTable && ['available', 'occupied'].includes(matchedTable.status)) {
             setSelectedTableId(String(matchedTable.id));
             setQrError('');
           } else {
             clearTableSession();
-            setQrError(`QR cua Ban ${qrTableNumber} hien khong con hop le hoac ban nay khong the nhan order.`);
-            alert(`Ban ${qrTableNumber} hien khong the nhan order QR.`);
+            setQrError(`QR của Bàn ${qrTableNumber} hiện không còn hợp lệ hoặc bàn này không thể nhận order.`);
+            alert(`Bàn ${qrTableNumber} hiện không thể nhận order QR.`);
           }
           return;
         }
@@ -114,13 +172,20 @@ export function CartPage() {
     return () => {
       mounted = false;
     };
-  }, [qrTableNumber]);
+  }, [isGuest, qrTableNumber]);
 
   useEffect(() => {
     if (!isCustomer) {
       setSelectedPayment('direct');
+      setSelectedUserVoucherId('');
     }
   }, [isCustomer]);
+
+  useEffect(() => {
+    if (isCustomer) {
+      loadWallet();
+    }
+  }, [isCustomer, loadWallet]);
 
   const getFriendlyGuestOrderError = (error) => {
     const message = String(
@@ -131,7 +196,7 @@ export function CartPage() {
     ).toLowerCase();
 
     if (message.includes('expired')) {
-      return 'Ma QR nay da het han. Vui long quet lai ma QR tai ban de tiep tuc dat mon.';
+      return 'Mã QR này đã hết hạn. Vui lòng quét lại mã QR tại bàn để tiếp tục đặt món.';
     }
 
     if (
@@ -139,24 +204,24 @@ export function CartPage() {
       message.includes('timestamp') ||
       message.includes('invalid qr')
     ) {
-      return 'Ma QR khong hop le hoac da bi thay doi. Vui long quet lai ma QR goc tai ban.';
+      return 'Mã QR không hợp lệ hoặc đã bị thay đổi. Vui lòng quét lại mã QR gốc tại bàn.';
     }
 
     if (message.includes('not available') || message.includes('inactive')) {
-      return 'Ban nay hien khong the nhan order. Vui long lien he nhan vien hoac quet lai ma QR khac.';
+      return 'Bàn này hiện không thể nhận order. Vui lòng liên hệ nhân viên hoặc quét lại mã QR khác.';
     }
 
-    return error?.response?.data?.message || 'Dat hang that bai. Vui long thu lai.';
+    return error?.response?.data?.message || 'Đặt hàng thất bại. Vui lòng thử lại.';
   };
 
   const checkout = () => {
     if (items.length === 0) return;
     if (!isQrMode && orderableTables.length === 0) {
-      alert('Chua co ban nao co the nhan order');
+      alert('Chưa có bàn nào có thể nhận order');
       return;
     }
     if (!selectedTable) {
-      alert('Vui long chon ban');
+      alert('Vui lòng chọn bàn');
       return;
     }
     setQrError('');
@@ -165,20 +230,20 @@ export function CartPage() {
 
   const confirmPayment = async () => {
     if (!selectedTable) {
-      alert('Vui long chon ban');
+      alert('Vui lòng chọn bàn');
       return;
     }
 
-    if (!isCustomer && (!Number.isInteger(qrTimestamp) || qrTimestamp <= 0 || !qrSignature)) {
-      setQrError('Ma QR nay khong day du thong tin xac thuc. Vui long quet lai ma QR tai ban.');
+    if (!isAuthenticatedOrder && (!Number.isInteger(qrTimestamp) || qrTimestamp <= 0 || !qrSignature)) {
+      setQrError('Mã QR này không đầy đủ thông tin xác thực. Vui lòng quét lại mã QR tại bàn.');
       return;
     }
 
-    const tableLabel = `Ban ${selectedTable.table_number}`;
-    const resolvedGuestName = String(guestName || '').trim() || 'Khach QR';
+    const tableLabel = `Bàn ${selectedTable.table_number}`;
+    const resolvedGuestName = String(guestName || '').trim() || 'Khách QR';
     const order = {
       id: genId(),
-      customerName: isCustomer ? displayName : resolvedGuestName,
+      customerName: isAuthenticatedOrder ? displayName : resolvedGuestName,
       items: items.map((item) => ({
         productId: item.productId,
         quantity: item.quantity,
@@ -189,21 +254,25 @@ export function CartPage() {
       paymentMethod: selectedPayment,
       tableId: selectedTable.id,
       tableNumber: selectedTable.table_number,
+      voucherCode: selectedUserVoucherId || !voucherCode.trim() ? null : voucherCode.trim().toUpperCase(),
+      userVoucherId: selectedUserVoucherId ? Number(selectedUserVoucherId) : null,
       qrTimestamp,
       qrSignature,
       address: tableLabel,
     };
 
     try {
-      const orderId = isCustomer
+      const createdOrder = isAuthenticatedOrder
         ? await place(order)
         : await placeGuest(order);
+      const orderId = createdOrder.id;
+      const payableAmount = Number(createdOrder.total_amount ?? estimatedTotal);
 
       if (isCustomer) {
         try {
           await paymentService.create({
             order_id: orderId,
-            amount: total,
+            amount: payableAmount,
             method: selectedPayment === 'direct' ? 'cash' : selectedPayment,
             status: 'completed',
             transaction_id: selectedPayment !== 'direct' ? `TXN-${Date.now()}` : null,
@@ -214,9 +283,14 @@ export function CartPage() {
       }
 
       clear();
+      if (isCustomer) {
+        await loadWallet();
+      }
       setShowPayment(false);
       setGuestName('');
       setQrError('');
+      setVoucherCode('');
+      setSelectedUserVoucherId('');
 
       if (selectedPayment === 'direct') {
         const popup = window.open('', '_blank');
@@ -225,7 +299,7 @@ export function CartPage() {
             (item) =>
               `\n${item.product.name} x${item.quantity} - ${(
                 item.product.price * item.quantity
-              ).toLocaleString('vi-VN')}d`
+              ).toLocaleString('vi-VN')}đ`
           )
           .join('');
 
@@ -236,14 +310,16 @@ export function CartPage() {
             'vi-VN'
           )}\n\nMat hang:${lines}\n\nTong tien: ${total.toLocaleString(
             'vi-VN'
-          )}d\nPhuong thuc: Truc tiep\n\nCam on quy khach!</pre>
+              )}d\nGiam gia: ${Number(createdOrder.discount_amount || 0).toLocaleString(
+                'vi-VN'
+              )}d\nThanh toan: ${payableAmount.toLocaleString('vi-VN')}d\nPhuong thuc: Truc tiep\n\nCam on quy khach!</pre>
           <script>window.onload=()=>{window.print(); setTimeout(()=>window.close(), 300);}</script>
         </body></html>`;
 
         popup.document.write(html);
         popup.document.close();
       } else {
-        alert('Thanh toan online da ghi nhan!');
+        alert('Thanh toán online đã ghi nhận!');
       }
     } catch (error) {
       console.error('Order creation failed:', error);
@@ -251,153 +327,176 @@ export function CartPage() {
       if (!isCustomer) {
         setQrError(friendlyError);
       }
-      alert('Dat hang that bai: ' + friendlyError);
+      alert('Đặt hàng thất bại: ' + friendlyError);
     }
   };
 
   if (showPayment) {
     return (
       <div className="container">
-        <h2>Thanh toan</h2>
-        <div className="payment-section">
-          <div className="payment-info">
-            <h3>Tong tien: {total.toLocaleString('vi-VN')}d</h3>
-            {qrError && (
-              <div
-                style={{
-                  marginBottom: '16px',
-                  padding: '12px 14px',
-                  borderRadius: '12px',
-                  background: '#fef2f2',
-                  border: '1px solid #fecaca',
-                  color: '#991b1b',
-                  fontSize: '14px',
-                  lineHeight: 1.5,
-                }}
-              >
-                <strong>QR order gap van de:</strong> {qrError}
-              </div>
-            )}
-            <div className="order-summary">
-              <h4>Don hang cua ban</h4>
-              <div className="order-items">
-                {items.map((item) => (
-                  <div key={item.productId} className="order-item">
-                    <div className="order-item-left">
-                      <img src={item.product.image} alt={item.product.name} />
-                      <div className="order-item-name">{item.product.name}</div>
+        <div className="mx-auto max-w-[560px]">
+          <h2 className="mb-5 mt-0 text-2xl font-bold text-slate-900">Thanh toán</h2>
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_2px_10px_rgba(15,23,42,0.08)]">
+            <div className="mb-8 text-center">
+              <h3 className="mb-5 mt-0 text-xl font-bold text-slate-700">
+                Tổng tiền: {estimatedTotal.toLocaleString('vi-VN')}đ
+              </h3>
+              {qrError && (
+                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3.5 py-3 text-left text-sm leading-relaxed text-red-800">
+                  <strong>QR order gặp vấn đề:</strong> {qrError}
+                </div>
+              )}
+
+              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 text-left">
+                <h4 className="mb-3 mt-0 flex items-center gap-2 text-base font-bold text-slate-800">
+                  <ReceiptText className="size-4" />
+                  Đơn hàng của bạn
+                </h4>
+                <div className="grid gap-3">
+                  {items.map((item) => (
+                    <div key={item.productId} className="flex items-center gap-3 rounded-xl bg-white p-3">
+                      <img src={item.product.image} alt={item.product.name} className="size-12 rounded-lg object-cover" />
+                      <div className="min-w-0 flex-1 font-semibold text-slate-800">{item.product.name}</div>
+                      <div className="text-sm font-bold text-slate-500">x{item.quantity}</div>
+                      <div className="text-sm font-bold text-slate-800">
+                        {(item.product.price * item.quantity).toLocaleString('vi-VN')}đ
+                      </div>
                     </div>
-                    <div className="order-item-qty">x{item.quantity}</div>
-                    <div className="order-item-price">
-                      {(item.product.price * item.quantity).toLocaleString('vi-VN')}d
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="order-total">
-                <strong>Tam tinh:</strong> {total.toLocaleString('vi-VN')}d
+                  ))}
+                </div>
+                <div className="mt-4 grid gap-2 border-t border-slate-200 pt-4 text-sm text-slate-700">
+                  <div className="flex justify-between"><strong>Tạm tính:</strong> {total.toLocaleString('vi-VN')}đ</div>
+                  {estimatedDiscount > 0 && (
+                    <div className="flex justify-between text-emerald-700"><strong>Giảm giá:</strong> -{estimatedDiscount.toLocaleString('vi-VN')}đ</div>
+                  )}
+                  <div className="flex justify-between text-base"><strong>Cần thanh toán:</strong> {estimatedTotal.toLocaleString('vi-VN')}đ</div>
+                </div>
               </div>
             </div>
 
-            <div className="address-section">
-              <label className="address-label">Chon so ban:</label>
+            {isCustomer && (
+              <Field label="Voucher của tôi" hint={`Xu hiện có: ${coins.toLocaleString('vi-VN')}`}>
+                <select
+                  className={fieldClass}
+                  value={selectedUserVoucherId}
+                  onChange={(event) => {
+                    setSelectedUserVoucherId(event.target.value);
+                    if (event.target.value) setVoucherCode('');
+                  }}
+                >
+                  <option value="">Không dùng voucher đã đổi</option>
+                  {usableWalletVouchers.map((entry) => (
+                    <option key={entry.id} value={entry.id}>
+                      {entry.voucher.name} ({entry.voucher.code})
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            )}
+
+            <Field label="Mã voucher trực tiếp">
+              <Input
+                className={fieldClass}
+                value={voucherCode}
+                onChange={(event) => {
+                  setVoucherCode(event.target.value);
+                  if (event.target.value.trim()) setSelectedUserVoucherId('');
+                }}
+                placeholder="Ví dụ: WELCOME10"
+                disabled={Boolean(selectedUserVoucherId)}
+              />
+            </Field>
+
+            <Field
+              label="Chọn số bàn"
+              hint={isQrMode && selectedTable ? `QR đang khóa vào Bàn ${selectedTable.table_number}. Khách không cần chọn lại bàn.` : null}
+              tone="success"
+            >
               <select
-                className="address-input table-select"
+                className={fieldClass}
                 value={selectedTableId}
                 onChange={(event) => setSelectedTableId(event.target.value)}
                 disabled={tablesLoading || selectableTables.length === 0 || isQrMode}
               >
                 {renderTableOptions()}
               </select>
-              {isQrMode && selectedTable && (
-                <p style={{ marginTop: '8px', color: '#0f766e', fontSize: '14px' }}>
-                  QR dang khoa vao Ban {selectedTable.table_number}. Khach khong can chon lai ban.
-                </p>
-              )}
+            </Field>
+
+            {!isCustomer && (
+              <Field label="Tên khách">
+                <Input
+                  className={fieldClass}
+                  value={guestName}
+                  onChange={(event) => setGuestName(event.target.value)}
+                  placeholder="Ví dụ: Anh Nam"
+                />
+              </Field>
+            )}
+
+            <p className="mb-3 mt-0 font-semibold text-slate-700">Chọn phương thức thanh toán:</p>
+            <div className="mb-8 grid grid-cols-2 gap-4">
+              {[
+                { value: 'direct', label: 'Trực tiếp', icon: WalletCards, disabled: false },
+                { value: 'vnpay', label: 'VNPay', icon: QrCode, disabled: !isCustomer },
+              ].map(({ value, label, icon: Icon, disabled }) => {
+                const active = selectedPayment === value;
+                return (
+                  <label key={value} className={cn('cursor-pointer', disabled && 'cursor-not-allowed')}>
+                    <input
+                      type="radio"
+                      name="payment"
+                      value={value}
+                      checked={active}
+                      onChange={(event) => setSelectedPayment(event.target.value)}
+                      disabled={disabled}
+                      className="sr-only"
+                    />
+                    <div
+                      className={cn(
+                        'flex flex-col items-center gap-2 rounded-xl border-2 border-slate-200 p-5 transition',
+                        active && 'border-cyan-500 bg-cyan-50',
+                        disabled && 'opacity-50'
+                      )}
+                    >
+                      <Icon className="size-7 text-slate-600" />
+                      <span className="font-semibold text-slate-700">{label}</span>
+                    </div>
+                  </label>
+                );
+              })}
             </div>
 
             {!isCustomer && (
-              <div className="address-section">
-                <label className="address-label">Ten khach:</label>
-                <input
-                  className="address-input"
-                  value={guestName}
-                  onChange={(event) => setGuestName(event.target.value)}
-                  placeholder="Vi du: Anh Nam"
-                />
+              <p className="mt-2 text-sm text-amber-800">
+                Guest QR MVP hiện chỉ mở thanh toán trực tiếp. Nếu cần, tôi sẽ nối thêm luồng VNPay/MoMo thật sau.
+              </p>
+            )}
+
+            {selectedPayment !== 'direct' && (
+              <div className="mb-8 text-center">
+                <div className="mx-auto mb-4 flex size-52 items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 text-base text-slate-500">
+                  {selectedPayment === 'vnpay' ? 'VNPay QR' : 'QR Code'}
+                </div>
+                <p className="text-slate-500">Quét mã QR để thanh toán</p>
               </div>
             )}
 
-            <p>Chon phuong thuc thanh toan:</p>
-          </div>
-          <div className="payment-options">
-            <label className="payment-option">
-              <input
-                type="radio"
-                name="payment"
-                value="direct"
-                checked={selectedPayment === 'direct'}
-                onChange={(event) => setSelectedPayment(event.target.value)}
-              />
-              <div
-                className="payment-card"
-                style={{
-                  background: selectedPayment === 'direct' ? '#ecfeff' : '',
-                  borderColor: selectedPayment === 'direct' ? '#06b6d4' : '',
-                }}
+            <div className="flex gap-4">
+              <Button
+                variant="secondary"
+                className="flex-1 rounded-xl"
+                onClick={() => setShowPayment(false)}
               >
-                <div className="payment-logo">$$</div>
-                <span>Truc tiep</span>
-              </div>
-            </label>
-            <label className="payment-option">
-              <input
-                type="radio"
-                name="payment"
-                value="vnpay"
-                checked={selectedPayment === 'vnpay'}
-                onChange={(event) => setSelectedPayment(event.target.value)}
-                disabled={!isCustomer}
-              />
-              <div
-                className="payment-card"
-                style={!isCustomer ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+                Quay lại
+              </Button>
+              <Button
+                className="flex-1 rounded-xl bg-teal-500 text-white hover:bg-teal-600"
+                onClick={confirmPayment}
+                disabled={tablesLoading || !selectedTable}
               >
-                <div className="payment-logo">QR</div>
-                <span>VNPay</span>
-              </div>
-            </label>
-          </div>
-
-          {!isCustomer && (
-            <p style={{ color: '#92400e', marginTop: '8px' }}>
-              Guest QR MVP hien chi mo thanh toan truc tiep. Neu can, toi se noi them luong VNPay/MoMo that sau.
-            </p>
-          )}
-
-          {selectedPayment !== 'direct' && (
-            <div className="qr-section">
-              <div className="qr-code">
-                {selectedPayment === 'vnpay' ? 'VNPay QR' : 'QR Code'}
-              </div>
-              <p>Quet ma QR de thanh toan</p>
+                {isAuthenticatedOrder ? 'Xác nhận thanh toán' : 'Gửi order cho quán'}
+              </Button>
             </div>
-          )}
-
-          <div className="payment-actions">
-            <button
-              className="btn secondary"
-              onClick={() => setShowPayment(false)}
-            >
-              Quay lai
-            </button>
-            <button
-              className="btn"
-              onClick={confirmPayment}
-              disabled={tablesLoading || !selectedTable}
-            >
-              {isCustomer ? 'Xac nhan thanh toan' : 'Gui order cho quan'}
-            </button>
           </div>
         </div>
       </div>
@@ -406,77 +505,84 @@ export function CartPage() {
 
   return (
     <div className="container">
-      <h2>Gio hang</h2>
+      <h2 className="mb-5 mt-0 text-2xl font-bold text-slate-900">Giỏ hàng</h2>
       {items.length === 0 ? (
-        <div className="empty-cart">
-          <p>Chua co san pham nao trong gio hang.</p>
+        <div className="px-5 py-16 text-center text-slate-500">
+          <ShoppingCart className="mx-auto mb-3 size-12 text-slate-300" />
+          <p>Chưa có sản phẩm nào trong giỏ hàng.</p>
         </div>
       ) : (
         <>
-          <div className="cart-items">
+          <div className="mb-6 flex flex-col gap-4">
             {items.map((item) => (
-              <div key={item.productId} className="cart-item">
+              <div key={item.productId} className="flex items-center gap-4 rounded-xl bg-white p-4 shadow-[0_2px_8px_rgba(0,0,0,0.1)] max-[640px]:items-start">
                 <img
-                  className="cart-item-image"
+                  className="size-16 rounded-lg object-cover"
                   src={item.product.image}
                   alt={item.product.name}
                 />
-                <div className="cart-item-info">
-                  <div className="cart-item-price">
-                    {item.product.price.toLocaleString('vi-VN')}d
+                <div className="flex flex-1 items-center gap-4 max-[640px]:flex-col max-[640px]:items-start">
+                  <div className="min-w-20 font-semibold text-slate-700">
+                    {item.product.price.toLocaleString('vi-VN')}đ
                   </div>
-                  <div className="quantity-controls">
-                    <button
-                      className="qty-btn"
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="size-8 rounded-md"
                       onClick={() => remove(item.productId)}
                     >
-                      -
-                    </button>
-                    <span className="qty-display">{item.quantity}</span>
-                    <button
-                      className="qty-btn"
+                      <Minus className="size-4" />
+                    </Button>
+                    <span className="min-w-10 text-center font-semibold">{item.quantity}</span>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="size-8 rounded-md"
                       onClick={() => add(item.productId)}
                     >
-                      +
-                    </button>
+                      <Plus className="size-4" />
+                    </Button>
                   </div>
                 </div>
-                <button
-                  className="delete-btn"
+                <Button
+                  variant="destructive"
+                  className="rounded-lg bg-red-600 text-white hover:bg-red-700"
                   onClick={() => {
                     for (let index = 0; index < item.quantity; index += 1) {
                       remove(item.productId);
                     }
                   }}
                 >
-                  Xoa
-                </button>
+                  <Trash2 className="size-4" />
+                  Xóa
+                </Button>
               </div>
             ))}
           </div>
 
-          <div className="cart-summary">
-            <div className="summary-row">
-              <label>So luong:</label>
-              <input
+          <div className="mb-6 rounded-xl bg-white p-5 shadow-[0_2px_8px_rgba(0,0,0,0.1)]">
+            <div className="mb-3 flex items-center justify-between">
+              <label className="font-medium text-slate-700">Số lượng:</label>
+              <Input
                 type="text"
                 value={totalQuantity}
                 readOnly
-                className="summary-input"
+                className="w-16 rounded-md bg-slate-50 text-center"
               />
             </div>
-            <div className="summary-row summary-total-row">
-              <label>Tong tien:</label>
-              <div className="total-amount">
-                {total.toLocaleString('vi-VN')}d
+            <div className="mb-3 flex items-center justify-between border-t border-slate-200 pt-3">
+              <label className="font-medium text-slate-700">Tổng tiền:</label>
+              <div className="text-lg font-bold text-slate-700">
+                {total.toLocaleString('vi-VN')}đ
               </div>
             </div>
-            <div className="summary-row table-summary-row">
-              <label htmlFor="cart-table-select">Ban:</label>
-              <div className="summary-table-control">
+            <div className="flex items-start justify-between gap-4 border-t border-slate-200 pt-3 max-[640px]:flex-col">
+              <label htmlFor="cart-table-select" className="font-medium text-slate-700">Bàn:</label>
+              <div className="w-[min(320px,55%)] max-[640px]:w-full">
                 <select
                   id="cart-table-select"
-                  className="summary-table-select"
+                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-[15px] text-slate-900 outline-none focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 disabled:cursor-not-allowed disabled:opacity-60"
                   value={selectedTableId}
                   onChange={(event) => setSelectedTableId(event.target.value)}
                   disabled={tablesLoading || selectableTables.length === 0 || isQrMode}
@@ -484,31 +590,32 @@ export function CartPage() {
                   {renderTableOptions()}
                 </select>
                 {isQrMode && selectedTable && (
-                  <p className="table-helper-text success">
-                    QR dang khoa vao Ban {selectedTable.table_number}.
+                  <p className="mt-2 text-sm leading-relaxed text-teal-700">
+                    QR đang khóa vào Bàn {selectedTable.table_number}.
                   </p>
                 )}
                 {!isQrMode && !tablesLoading && selectedTable && (
-                  <p className="table-helper-text">
-                    Don nay se gan vao Ban {selectedTable.table_number}.
+                  <p className="mt-2 text-sm leading-relaxed text-slate-500">
+                    Đơn này sẽ gắn vào Bàn {selectedTable.table_number}.
                   </p>
                 )}
                 {!isQrMode && !tablesLoading && selectableTables.length === 0 && (
-                  <p className="table-helper-text error">
-                    Hien chua co ban nao co the nhan order.
+                  <p className="mt-2 text-sm leading-relaxed text-red-700">
+                    Hiện chưa có bàn nào có thể nhận order.
                   </p>
                 )}
               </div>
             </div>
           </div>
 
-          <button
-            className="checkout-btn"
+          <Button
+            className="w-full rounded-xl bg-teal-500 p-4 text-lg font-semibold text-white hover:-translate-y-0.5 hover:bg-teal-600 disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:translate-y-0"
             onClick={checkout}
             disabled={tablesLoading || !selectedTable}
           >
-            Thanh toan
-          </button>
+            <CreditCard className="size-5" />
+            Thanh toán
+          </Button>
         </>
       )}
     </div>

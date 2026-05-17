@@ -14,7 +14,7 @@ const ORDER_STATUS = {
 };
 
 const VALID_TRANSITIONS = {
-  pending: ['confirmed', 'ready', 'cancelled'],
+  pending: ['confirmed', 'preparing', 'ready', 'cancelled'],
   confirmed: ['preparing', 'ready', 'cancelled'],
   preparing: ['ready', 'cancelled'],
   ready: ['delivering', 'delivered', 'cancelled'],

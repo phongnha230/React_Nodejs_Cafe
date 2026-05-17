@@ -11,9 +11,13 @@ const Payment = require('../models/payment');
 const Product = require('../models/product');
 const Table = require('../models/table');
 const User = require('../models/user');
+const Voucher = require('../models/voucher');
+const UserVoucher = require('../models/userVoucher');
 const { ORDER_STATUS, VALID_TRANSITIONS } = require('../constants/orderStatus');
+const ROLES = require('../constants/roles');
 const { calculateSubtotal } = require('../utils/priceCalculator');
 const { parseGuestNameFromNote, stripGuestNotePrefix } = require('../utils/guestOrder');
+const voucherService = require('./voucherService');
 const logger = require('../config/logger');
 
 class OrderService {
@@ -85,7 +89,7 @@ class OrderService {
      * @returns {Promise<object>} Created order with items
      */
     async createOrderForUser(userId, orderData, options = {}) {
-        const { table_id, table_number, note, items, payment_method, payment_status } = orderData;
+        const { table_id, table_number, note, items, payment_method, payment_status, voucher_code, user_voucher_id } = orderData;
         const { isGuestOrder = false } = options;
 
         // Validate items
@@ -165,6 +169,16 @@ class OrderService {
         const transaction = await sequelize.transaction();
 
         try {
+            const voucherResult = await voucherService.resolveVoucherForOrder(userId, {
+                voucherCode: voucher_code,
+                userVoucherId: user_voucher_id,
+                subtotal: totalAmount,
+                transaction
+            });
+            const subtotalAmount = totalAmount;
+            const discountAmount = voucherResult.discountAmount;
+            const finalAmount = Math.max(0, subtotalAmount - discountAmount);
+
             // Create order
             const order = await Order.create({
                 user_id: userId,
@@ -172,7 +186,11 @@ class OrderService {
                 table_number: resolvedTable?.table_number || table_number || null,
                 status: ORDER_STATUS.PENDING,
                 note: note || null,
-                total_amount: totalAmount
+                subtotal_amount: subtotalAmount,
+                discount_amount: discountAmount,
+                total_amount: finalAmount,
+                voucher_id: voucherResult.voucher?.id || null,
+                user_voucher_id: voucherResult.userVoucher?.id || null
             }, { transaction });
 
             // Prepare order items with order_id
@@ -187,9 +205,21 @@ class OrderService {
             if (isGuestOrder) {
                 await Payment.create({
                     order_id: order.id,
-                    amount: totalAmount,
+                    amount: finalAmount,
                     method: payment_method || 'cash',
                     status: payment_status || 'pending'
+                }, { transaction });
+            }
+
+            if (voucherResult.voucher) {
+                await voucherResult.voucher.increment('used_count', { by: 1, transaction });
+            }
+
+            if (voucherResult.userVoucher) {
+                await voucherResult.userVoucher.update({
+                    is_used: true,
+                    used_order_id: order.id,
+                    used_at: new Date()
                 }, { transaction });
             }
 
@@ -203,7 +233,8 @@ class OrderService {
             logger.info('Order created with validated prices', {
                 orderId: order.id,
                 userId,
-                totalAmount,
+                totalAmount: finalAmount,
+                discountAmount,
                 itemsCount: items.length
             });
 
@@ -239,6 +270,7 @@ class OrderService {
         return order;
     }
 
+
     /**
      * Get orders with filters
      * @param {object} filters - Filter options (userId, status, page, limit)
@@ -250,8 +282,8 @@ class OrderService {
 
         const where = {};
 
-        // If not admin, filter by user
-        if (role !== 'admin' && userId) {
+        // If not admin, staff, or barista, filter by user (customer)
+        if (![ROLES.ADMIN, ROLES.STAFF, ROLES.BARISTA].includes(role) && userId) {
             where.user_id = userId;
         }
 
@@ -266,9 +298,15 @@ class OrderService {
             offset: parseInt(offset),
             order: [['id', 'DESC']],
             include: [
-                { model: OrderItem, as: 'items' },
+                {
+                    model: OrderItem,
+                    as: 'items',
+                    include: [{ model: Product }]
+                },
                 { model: Payment, as: 'payments' },
                 { model: Table, as: 'table' },
+                { model: Voucher, as: 'voucher' },
+                { model: UserVoucher, as: 'user_voucher' },
                 { model: User, as: 'User', attributes: ['id', 'username', 'name', 'role'] }
             ]
         });
@@ -294,8 +332,8 @@ class OrderService {
     async getOrderById(orderId, userId, role) {
         const where = { id: orderId };
 
-        // If not admin, check ownership
-        if (role !== 'admin') {
+        // If not admin, staff, or barista, check ownership
+        if (![ROLES.ADMIN, ROLES.STAFF, ROLES.BARISTA].includes(role)) {
             where.user_id = userId;
         }
 
@@ -305,10 +343,12 @@ class OrderService {
                 {
                     model: OrderItem,
                     as: 'items',
-                    include: [{ model: Product, as: 'product' }]
+                    include: [{ model: Product }]
                 },
                 { model: Payment, as: 'payments' },
                 { model: Table, as: 'table' },
+                { model: Voucher, as: 'voucher' },
+                { model: UserVoucher, as: 'user_voucher' },
                 { model: User, as: 'User', attributes: ['id', 'username', 'name', 'role'] }
             ]
         });
@@ -325,9 +365,10 @@ class OrderService {
      * @param {number} orderId - Order ID
      * @param {string} newStatus - New status
      * @param {number} userId - User ID (for logging)
+     * @param {string} role - User role
      * @returns {Promise<object>} Updated order
      */
-    async updateOrderStatus(orderId, newStatus, userId) {
+    async updateOrderStatus(orderId, newStatus, userId, role) {
         // Validate status
         if (!Object.values(ORDER_STATUS).includes(newStatus)) {
             throw new Error('Invalid order status');
@@ -344,6 +385,24 @@ class OrderService {
 
         if (!validTransitions.includes(newStatus)) {
             throw new Error(`Cannot transition from ${currentStatus} to ${newStatus}`);
+        }
+
+        const roleAllowedStatuses = {
+            [ROLES.ADMIN]: Object.values(ORDER_STATUS),
+            [ROLES.BARISTA]: [
+                ORDER_STATUS.CONFIRMED,
+                ORDER_STATUS.PREPARING,
+                ORDER_STATUS.READY
+            ],
+            [ROLES.STAFF]: [
+                ORDER_STATUS.DELIVERING,
+                ORDER_STATUS.DELIVERED
+            ]
+        };
+
+        const allowedStatuses = roleAllowedStatuses[role] || [];
+        if (!allowedStatuses.includes(newStatus)) {
+            throw new Error(`Role ${role} is not allowed to update order to ${newStatus}`);
         }
 
         const transaction = await sequelize.transaction();
@@ -460,7 +519,7 @@ class OrderService {
                 {
                     model: OrderItem,
                     as: 'items',
-                    include: [{ model: Product, as: 'product' }]
+                    include: [{ model: Product }]
                 }
             ]
         });
@@ -492,7 +551,7 @@ class OrderService {
             if (order.items && order.status !== ORDER_STATUS.CANCELLED) {
                 order.items.forEach(item => {
                     const productId = item.product_id;
-                    const productName = item.product ? item.product.name : `Product #${productId}`;
+                    const productName = item.Product ? item.Product.name : `Product #${productId}`;
                     
                     if (!productSales[productId]) {
                         productSales[productId] = {

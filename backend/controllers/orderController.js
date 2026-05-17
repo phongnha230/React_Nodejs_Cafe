@@ -14,13 +14,15 @@ const { verifySignedTablePayload } = require('../utils/qrSignature');
  */
 exports.createOrder = async (req, res) => {
   try {
-    const { table_id, table_number, note, items } = req.body;
+    const { table_id, table_number, note, items, voucher_code, user_voucher_id } = req.body;
 
     const result = await orderService.createOrder(req.user.id, {
       table_id,
       table_number,
       note,
-      items
+      items,
+      voucher_code,
+      user_voucher_id
     });
 
     res.status(201).json(created(result, 'Order created successfully'));
@@ -30,7 +32,12 @@ exports.createOrder = async (req, res) => {
       userId: req.user.id
     });
 
-    if (err.message.includes('required') || err.message.includes('must')) {
+    if (
+      err.message.includes('required') ||
+      err.message.includes('must') ||
+      err.message.includes('Voucher') ||
+      err.message.includes('voucher')
+    ) {
       return res.status(400).json(error(err.message, 400));
     }
 
@@ -43,7 +50,7 @@ exports.createOrder = async (req, res) => {
  */
 exports.createGuestOrder = async (req, res) => {
   try {
-    const { table_id, table_number, note, items, guest_name, payment_method, ts, sig } = req.body;
+    const { table_id, table_number, note, items, guest_name, payment_method, ts, sig, voucher_code } = req.body;
 
     verifySignedTablePayload(table_number, ts, sig);
 
@@ -53,6 +60,7 @@ exports.createGuestOrder = async (req, res) => {
       table_number,
       note: appendGuestNote(note, guestName),
       items,
+      voucher_code,
       payment_method: payment_method || 'cash',
       payment_status: 'pending'
     });
@@ -74,6 +82,8 @@ exports.createGuestOrder = async (req, res) => {
       err.message.includes('not found') ||
       err.message.includes('not available') ||
       err.message.includes('inactive') ||
+      err.message.includes('Voucher') ||
+      err.message.includes('voucher') ||
       err.message.includes('signature') ||
       err.message.includes('expired') ||
       err.message.includes('timestamp')
@@ -158,7 +168,7 @@ exports.updateOrderStatus = async (req, res) => {
       return res.status(400).json(error('Status is required', 400));
     }
 
-    const order = await orderService.updateOrderStatus(id, status, req.user.id);
+    const order = await orderService.updateOrderStatus(id, status, req.user.id, req.user.role);
     res.json(success(order, 'Order status updated successfully'));
   } catch (err) {
     logger.error('Error updating order status', {
@@ -171,7 +181,7 @@ exports.updateOrderStatus = async (req, res) => {
       return res.status(404).json(error(err.message, 404));
     }
 
-    if (err.message.includes('Invalid') || err.message.includes('Cannot transition')) {
+    if (err.message.includes('Invalid') || err.message.includes('Cannot transition') || err.message.includes('not allowed')) {
       return res.status(400).json(error(err.message, 400));
     }
 

@@ -6,17 +6,25 @@ const { handleValidationErrors } = require('./baseValidator');
  */
 const validateOrderCreation = [
   body('table_id')
-    .optional()
+    .optional({ values: 'falsy' })
     .isInt({ min: 1 })
     .withMessage('Table ID must be a positive integer'),
   body('table_number')
-    .optional()
+    .optional({ values: 'falsy' })
     .isInt({ min: 1 })
     .withMessage('Table number must be a positive integer'),
   body('note')
-    .optional()
+    .optional({ values: 'falsy' })
     .isLength({ max: 500 })
     .withMessage('Note cannot exceed 500 characters'),
+  body('voucher_code')
+    .optional({ values: 'falsy' })
+    .isLength({ min: 1, max: 50 })
+    .withMessage('Voucher code cannot exceed 50 characters'),
+  body('user_voucher_id')
+    .optional({ values: 'falsy' })
+    .isInt({ min: 1 })
+    .withMessage('User voucher ID must be a positive integer'),
   body('items')
     .isArray({ min: 1 })
     .withMessage('Items must be a non-empty array'),
