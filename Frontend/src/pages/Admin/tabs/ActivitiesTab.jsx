@@ -1,7 +1,21 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { Pagination } from '../../../components/common/Pagination.jsx'
 
 export function ActivitiesTab({ activityItems, addActivity, removeActivity }) {
   const [previewImg, setPreviewImg] = useState('')
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activityItems]);
+
+  const totalPages = Math.ceil(activityItems.length / itemsPerPage);
+  const currentActivities = activityItems.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   return (
     <div className="dashboard-section">
@@ -65,7 +79,7 @@ export function ActivitiesTab({ activityItems, addActivity, removeActivity }) {
         <button className="btn">Thêm ảnh</button>
       </form>
       <div className="gallery" style={{ marginTop: 12 }}>
-        {activityItems.map((it) => (
+        {currentActivities.map((it) => (
           <div key={it.id} className="card" style={{ padding: 8 }}>
             <img
               src={it.img}
@@ -96,6 +110,14 @@ export function ActivitiesTab({ activityItems, addActivity, removeActivity }) {
           </div>
         ))}
       </div>
+
+      {totalPages > 1 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+        />
+      )}
     </div>
   )
 }

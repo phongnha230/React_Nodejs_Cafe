@@ -1,13 +1,16 @@
 export const ROUTES = {
   HOME: '/',
   MENU: '/menu',
+  ACTIVITIES: '/activities',
+  NEWS: '/news',
+  NEWS_DETAIL: (id) => `/news/${id}`,
   CART: '/cart',
   LOGIN: '/login',
   REGISTER: '/register',
   FORGOT_PASSWORD: '/forgot-password',
   ADMIN: '/admin',
   PRODUCT_REVIEWS: (id) => `/reviews/${id}`,
+  PRODUCT_DETAIL: (id) => `/product/${id}`,
   MY_ORDERS: '/my-orders',
   NOT_FOUND: '*',
 };
-

@@ -3,6 +3,9 @@ import { Header } from './components/layout/Header.jsx';
 import { Footer } from './components/layout/Footer.jsx';
 import HomePage from './pages/Home/HomePage.jsx';
 import { MenuPage } from './pages/Product/MenuPage.jsx';
+import { PublicActivitiesPage } from './pages/Activities/ActivitiesPage.jsx';
+import { PublicNewsPage } from './pages/News/NewsPage.jsx';
+import { NewsDetailPage } from './pages/News/NewsDetailPage.jsx';
 import { CartPage } from './pages/Order/CartPage.jsx';
 import { LoginPage } from './pages/Auth/LoginPage.jsx';
 import { AdminDashboard } from './pages/Admin/AdminDashboardPage.jsx';
@@ -11,9 +14,11 @@ import { AccountsPage } from './pages/Admin/AccountsPage.jsx';
 import { AdminMenuPage } from './pages/Admin/MenuPage.jsx';
 import { AdminNewsPage } from './pages/Admin/NewsPage.jsx';
 import { ActivitiesPage } from './pages/Admin/ActivitiesPage.jsx';
+import { VouchersPage } from './pages/Admin/VouchersPage.jsx';
 import { OrdersPage } from './pages/Admin/OrdersPage.jsx';
 import { TablesPage } from './pages/Admin/TablesPage.jsx';
-import { ProductReviews } from './pages/Product/ProductReviewsPage.jsx';
+import ProductReviewsPage from './pages/Product/ProductReviewsPage.jsx';
+import ProductDetailPage from './pages/Product/ProductDetailPage.jsx';
 import { CustomerOrders } from './pages/Order/CustomerOrdersPage.jsx';
 import { NotFoundPage } from './pages/NotFound/NotFoundPage.jsx';
 import { useAuthStore } from './stores/authStore.js';
@@ -65,6 +70,11 @@ export default function App() {
   const activeTab = getAdminSectionFromPathname(location.pathname);
 
   const isCartPage = location.pathname === ROUTES.CART;
+  const isActivitiesPage = location.pathname === ROUTES.ACTIVITIES;
+  const isNewsPage = location.pathname === ROUTES.NEWS || location.pathname.startsWith(`${ROUTES.NEWS}/`);
+  const isMenuPage = location.pathname === ROUTES.MENU;
+  const isProductDetailPage = location.pathname.startsWith('/product/');
+  const canAccessOrdersAdmin = [ROLES.ADMIN, ROLES.STAFF, ROLES.BARISTA].includes(role);
 
   if (isVerifying) {
     return (
@@ -97,14 +107,18 @@ export default function App() {
           <Route path={ROUTES.HOME} element={<HomePage sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />} />
           <Route path={ROUTES.CART} element={<CartPage />} />
           <Route path={ROUTES.MENU} element={<MenuPage />} />
-          <Route path={ROUTES.PRODUCT_REVIEWS(':id')} element={<ProductReviews />} />
+          <Route path={ROUTES.ACTIVITIES} element={<PublicActivitiesPage />} />
+          <Route path={ROUTES.NEWS} element={<PublicNewsPage />} />
+          <Route path="/news/:id" element={<NewsDetailPage />} />
+          <Route path="/product/:id" element={<ProductDetailPage />} />
+          <Route path={ROUTES.PRODUCT_REVIEWS(':id')} element={<ProductReviewsPage />} />
           <Route path={ROUTES.MY_ORDERS} element={<CustomerOrders />} />
           <Route path={ROUTES.LOGIN} element={<LoginPage />} />
 
           <Route
             path={`${ROUTES.ADMIN}/*`}
             element={
-              role === ROLES.ADMIN ? (
+              canAccessOrdersAdmin ? (
                 <AdminDashboard
                   sidebarOpen={sidebarOpen}
                   setSidebarOpen={setSidebarOpen}
@@ -114,22 +128,23 @@ export default function App() {
               )
             }
           >
-            <Route index element={<Navigate to="revenue" replace />} />
-            <Route path="revenue" element={<RevenuePage />} />
-            <Route path="accounts" element={<AccountsPage />} />
-            <Route path="menu" element={<AdminMenuPage />} />
-            <Route path="news" element={<AdminNewsPage />} />
-            <Route path="activities" element={<ActivitiesPage />} />
+            <Route index element={<Navigate to={role === ROLES.ADMIN ? 'revenue' : 'orders'} replace />} />
+            <Route path="revenue" element={role === ROLES.ADMIN ? <RevenuePage /> : <Navigate to="../orders" replace />} />
+            <Route path="accounts" element={role === ROLES.ADMIN ? <AccountsPage /> : <Navigate to="../orders" replace />} />
+            <Route path="menu" element={role === ROLES.ADMIN ? <AdminMenuPage /> : <Navigate to="../orders" replace />} />
+            <Route path="news" element={role === ROLES.ADMIN ? <AdminNewsPage /> : <Navigate to="../orders" replace />} />
+            <Route path="activities" element={role === ROLES.ADMIN ? <ActivitiesPage /> : <Navigate to="../orders" replace />} />
+            <Route path="vouchers" element={role === ROLES.ADMIN ? <VouchersPage /> : <Navigate to="../orders" replace />} />
             <Route path="orders" element={<OrdersPage />} />
-            <Route path="tables" element={<TablesPage />} />
-            <Route path="*" element={<Navigate to="revenue" replace />} />
+            <Route path="tables" element={role === ROLES.ADMIN ? <TablesPage /> : <Navigate to="../orders" replace />} />
+            <Route path="*" element={<Navigate to={role === ROLES.ADMIN ? 'revenue' : 'orders'} replace />} />
           </Route>
 
           <Route path={ROUTES.NOT_FOUND} element={<NotFoundPage />} />
         </Routes>
       </main>
 
-      {!isStandaloneAuthPage && !isAdminPage && !isCartPage && <Footer />}
+      {!isStandaloneAuthPage && !isAdminPage && !isCartPage && !isActivitiesPage && !isNewsPage && !isMenuPage && !isProductDetailPage && <Footer />}
 
       {toast.open && (
         <div className={`toast ${toast.type}`} onClick={toast.hide}>

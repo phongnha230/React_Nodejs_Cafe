@@ -4,6 +4,34 @@ import newsService from '../services/newService.js';
 
 const genId = () => (crypto?.randomUUID ? crypto.randomUUID() : `n_${Date.now()}_${Math.random().toString(36).slice(2)}`);
 
+const unwrapNews = (response) => response?.data?.data ?? response?.data;
+
+const stripMarkdown = (value = '') =>
+  String(value)
+    .replace(/!\[[^\]]*]\([^)]*\)/g, '')
+    .replace(/\[[^\]]+]\([^)]*\)/g, '$1')
+    .replace(/[`*_>#-]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const makeExcerpt = (news, fallback = {}) => {
+  const explicitExcerpt = news.excerpt || news.description || fallback.excerpt;
+  if (explicitExcerpt) return explicitExcerpt;
+
+  const source = stripMarkdown(news.content || fallback.content || '');
+  return source.length > 150 ? `${source.slice(0, 147)}...` : source;
+};
+
+const formatNews = (news, fallback = {}) => ({
+  id: news.id,
+  title: news.title || fallback.title || '',
+  img: news.img || news.image || news.image_url || fallback.img || '',
+  excerpt: makeExcerpt(news, fallback),
+  content: news.content || fallback.content || fallback.excerpt || '',
+  pinned: news.pinned || news.is_pinned || false,
+  createdAt: news.createdAt || news.created_at || Date.now(),
+});
+
 export const useNewsStore = create((set, get) => ({
   news: [],
   loading: false,
@@ -18,14 +46,7 @@ export const useNewsStore = create((set, get) => ({
       const apiNews = Array.isArray(payload) ? payload : (payload?.data || []);
 
       // Format data nếu cần
-      const formattedNews = apiNews.map(news => ({
-        id: news.id,
-        title: news.title || '',
-        img: news.img || news.image || news.image_url || '',
-        excerpt: news.excerpt || news.content || news.description || '',
-        pinned: news.pinned || false,
-        createdAt: news.createdAt || news.created_at || Date.now(),
-      }));
+      const formattedNews = apiNews.map(news => formatNews(news));
 
       set({ news: formattedNews, loading: false });
       storage.set('news', formattedNews);
@@ -37,26 +58,41 @@ export const useNewsStore = create((set, get) => ({
     }
   },
 
+  // Load a single news item, useful for opening detail page directly
+  async loadById(id) {
+    set({ loading: true, error: null });
+    try {
+      const response = await newsService.getById(id);
+      const payload = unwrapNews(response);
+      const formatted = formatNews(payload);
+      const exists = get().news.some(n => String(n.id) === String(id));
+      const next = exists
+        ? get().news.map(n => String(n.id) === String(id) ? formatted : n)
+        : [formatted, ...get().news];
+
+      set({ news: next, loading: false });
+      storage.set('news', next);
+      return formatted;
+    } catch (error) {
+      console.error('Load news detail failed:', error);
+      set({ error: error.message, loading: false });
+      throw error;
+    }
+  },
+
   // Add new news
-  async add({ title, img, excerpt }) {
+  async add({ title, img, excerpt, content }) {
     set({ loading: true, error: null });
     try {
       const response = await newsService.create({
         title,
         image_url: img,  // Send as image_url to match backend field
-        content: excerpt || title,  // Backend requires 'content', not 'excerpt'
+        content: content || excerpt || title,  // Markdown body
+        excerpt,
         status: 'published'  // Set status to published by default
       });
-      const newNews = response.data;
-
-      const formatted = {
-        id: newNews.id,
-        title: newNews.title || title,
-        img: newNews.image_url || img || '',  // Use image_url from backend
-        excerpt: newNews.content || excerpt,
-        pinned: newNews.pinned || false,
-        createdAt: newNews.createdAt || newNews.created_at || Date.now(),
-      };
+      const newNews = unwrapNews(response);
+      const formatted = formatNews(newNews, { title, img, excerpt, content });
 
       const next = [formatted, ...get().news];
       set({ news: next, loading: false });
@@ -73,8 +109,19 @@ export const useNewsStore = create((set, get) => ({
   async update(id, patch) {
     set({ loading: true, error: null });
     try {
-      await newsService.update(id, patch);
-      const next = get().news.map(n => n.id === id ? { ...n, ...patch } : n);
+      const updateData = {};
+      if (patch.title !== undefined) updateData.title = patch.title;
+      if (patch.content !== undefined) updateData.content = patch.content;
+      if (patch.excerpt !== undefined) updateData.excerpt = patch.excerpt;
+      if (patch.img !== undefined) updateData.image_url = patch.img;
+      if (patch.status !== undefined) updateData.status = patch.status;
+      if (patch.pinned !== undefined) updateData.is_pinned = patch.pinned;
+
+      const response = await newsService.update(id, updateData);
+      const updatedNews = unwrapNews(response);
+      const formatted = updatedNews ? formatNews(updatedNews, patch) : null;
+
+      const next = get().news.map(n => n.id === id ? (formatted || { ...n, ...patch }) : n);
       set({ news: next, loading: false });
       storage.set('news', next);
     } catch (error) {

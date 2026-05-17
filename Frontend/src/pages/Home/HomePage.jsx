@@ -1,79 +1,73 @@
-import { useEffect, useRef, useState, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Home, List, ShoppingCart, Star, TicketPercent } from 'lucide-react'
 import { Banner } from '../../components/common/Banner'
 import { FilterBar } from '../../components/common/FilterBar'
 import { ProductCard } from '../../components/common/ProductCard'
 import { useProductStore } from '../../stores/productStore'
-import { useActivitiesStore } from '../../stores/activitiesStore'
-import { useNewsStore } from '../../stores/newsStore'
+import { useVoucherStore } from '../../stores/voucherStore'
+import { formatCurrency } from '../../utils/format'
+import spaceImage from '../../assets/space_coffee.jpg'
+import cafeImage from '../../assets/Hinh-anh-cafe-dep-nhat.png'
+
+const aboutCards = [
+  {
+    title: 'Không gian yên tĩnh',
+    icon: Home,
+    text: 'Không chỉ là nơi thưởng thức cà phê, mỗi góc nhỏ tại Jokopi đều được thiết kế để mang lại sự tĩnh lặng giữa nhịp phố.',
+  },
+  {
+    title: 'Menu đa dạng',
+    icon: List,
+    text: 'Từ cà phê rang xay đến trà, nước ép và món ăn nhẹ, thực đơn luôn được chuẩn bị kỹ để hợp nhiều gu thưởng thức.',
+  },
+  {
+    title: 'Trải nghiệm đặc biệt',
+    icon: Star,
+    text: 'Jokopi giữ không gian ấm cúng, tinh tế để bạn có thể nghỉ lại, trò chuyện và tận hưởng những khoảnh khắc đáng nhớ.',
+  },
+]
 
 function AboutSection() {
   return (
-    <section className="section about" id="about">
-      <div className="container">
-        <div className="about-content">
-          <div className="about-text">
-            <div className="brand-name-section">
-              <span className="brand-text">jokopi.</span>
-              <span className="brand-suffix-text">Home</span>
-            </div>
-            
-            <div className="about-grid">
-              <article className="about-card">
-                <div className="about-card-icon">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
-                </div>
-                <div className="about-card-info">
-                  <h3 className="about-card-title">Không gian yên tĩnh</h3>
-                  <p className="about-card-text">
-                    Không chỉ là nơi thưởng thức cà phê, mỗi góc nhỏ tại jokopi đều được thiết kế để mang lại sự tĩnh lặng, giúp bạn tách biệt khỏi sự ồn ào của phố thị.
-                  </p>
-                </div>
-              </article>
-
-              <article className="about-card">
-                <div className="about-card-icon">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
-                </div>
-                <div className="about-card-info">
-                  <h3 className="about-card-title">Menu đa dạng</h3>
-                  <p className="about-card-text">
-                    Từ những hạt cà phê rang xay nguyên chất đến những thức uống độc quyền, thực đơn của chúng tôi luôn đa dạng và được chuẩn bị tỉ mỉ để chiều lòng mọi gu thưởng thức.
-                  </p>
-                </div>
-              </article>
-
-              <article className="about-card">
-                <div className="about-card-icon">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-                </div>
-                <div className="about-card-info">
-                  <h3 className="about-card-title">Trải nghiệm đặc biệt</h3>
-                  <p className="about-card-text">
-                    Tại jokopi, mỗi khách hàng đều là một người bạn. Chúng tôi mang đến không gian ấm cúng, tinh tế để bạn có thể "chill" và tận hưởng những khoảnh khắc đáng nhớ.
-                  </p>
-                </div>
-              </article>
-            </div>
+    <section id="about" className="bg-white px-5 py-16">
+      <div className="mx-auto grid max-w-6xl grid-cols-[1.1fr_0.9fr] gap-10 max-[900px]:grid-cols-1">
+        <div>
+          <div className="mb-8 flex items-baseline gap-2">
+            <span className="text-4xl font-extrabold tracking-normal text-slate-950">jokopi.</span>
+            <span className="text-lg font-semibold text-emerald-500">Home</span>
           </div>
 
-          <aside className="about-images">
-            <div className="about-image-wrapper">
-              <img
-                className="about-showcase-img"
-                src="/src/assets/space_coffee.jpg"
-                alt="Không gian quán cafe jokopi ấm cúng"
-              />
-            </div>
-            <div className="about-image-wrapper">
-              <img
-                className="about-showcase-img"
-                src="https://images.unsplash.com/photo-1445116572660-236099ec97a0?q=80&w=800&auto=format&fit=crop"
-                alt="Khu vực làm việc tại jokopi"
-              />
-            </div>
-          </aside>
+          <div className="grid gap-4">
+            {aboutCards.map((item) => {
+              const Icon = item.icon
+
+              return (
+                <article
+                  key={item.title}
+                  className="flex gap-4 rounded-2xl border border-slate-100 bg-slate-50 p-5 shadow-sm transition hover:-translate-y-1 hover:border-emerald-100 hover:bg-white hover:shadow-md"
+                >
+                  <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-600">
+                    <Icon className="size-6" />
+                  </div>
+                  <div>
+                    <h3 className="mb-2 text-lg font-bold text-slate-900">{item.title}</h3>
+                    <p className="m-0 leading-7 text-slate-600">{item.text}</p>
+                  </div>
+                </article>
+              )
+            })}
+          </div>
         </div>
+
+        <aside className="grid grid-cols-2 gap-4 max-[560px]:grid-cols-1">
+          <div className="overflow-hidden rounded-3xl shadow-lg">
+            <img className="h-full min-h-[340px] w-full object-cover" src={spaceImage} alt="Không gian quán cafe Jokopi" />
+          </div>
+          <div className="mt-12 overflow-hidden rounded-3xl shadow-lg max-[560px]:mt-0">
+            <img className="h-full min-h-[340px] w-full object-cover" src={cafeImage} alt="Khu vực phục vụ tại Jokopi" />
+          </div>
+        </aside>
       </div>
     </section>
   )
@@ -81,20 +75,17 @@ function AboutSection() {
 
 function ActionsSection({ q, setQ, cat, setCat, price, setPrice }) {
   return (
-    <section className="section actions">
-      <div className="container">
-        <h3 className="section-title">Tìm món & Giỏ hàng</h3>
-        <div className="actions-bar">
-          <FilterBar
-            q={q}
-            setQ={setQ}
-            cat={cat}
-            setCat={setCat}
-            price={price}
-            setPrice={setPrice}
-          />
-          <Link className="btn-premium" to="/cart">
-            Xem giỏ hàng của bạn
+    <section className="bg-slate-50 px-5 py-12">
+      <div className="mx-auto max-w-6xl">
+        <h3 className="mb-4 text-2xl font-extrabold text-slate-900">Tìm món & Giỏ hàng</h3>
+        <div className="flex items-center gap-4 rounded-3xl border border-slate-100 bg-white p-4 shadow-sm max-[760px]:flex-col max-[760px]:items-stretch">
+          <FilterBar q={q} setQ={setQ} cat={cat} setCat={setCat} price={price} setPrice={setPrice} />
+          <Link
+            className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-emerald-500 px-5 font-bold text-white no-underline shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-600 hover:text-white"
+            to="/cart"
+          >
+            <ShoppingCart className="size-4" />
+            Xem giỏ hàng
           </Link>
         </div>
       </div>
@@ -102,50 +93,82 @@ function ActionsSection({ q, setQ, cat, setCat, price, setPrice }) {
   )
 }
 
-function GallerySection() {
-  const items = useActivitiesStore((s) => s.items) || []
-  return (
-    <section className="section reveal" id="activities">
-      <div className="container">
-        <h3 className="section-title">Hoạt động của quán</h3>
-        <div className="gallery">
-          {items.map((it) => (
-            <img
-              key={it.id}
-              className="gallery-img"
-              src={it.img}
-              alt={`gallery-${it.id}`}
-            />
-          ))}
-        </div>
-      </div>
-    </section>
+function VoucherSection() {
+  const vouchers = useVoucherStore((s) => s.vouchers)
+  const loading = useVoucherStore((s) => s.loading)
+  const loadVouchers = useVoucherStore((s) => s.loadVouchers)
+
+  useEffect(() => {
+    loadVouchers()
+  }, [loadVouchers])
+
+  const visibleVouchers = useMemo(
+    () => (vouchers || []).filter((voucher) => voucher.is_active !== false).slice(0, 6),
+    [vouchers]
   )
-}
-
-function NewsSection() {
-  const news = useNewsStore((s) => s.news) || []
-  const sorted = useMemo(() => {
-    return [...news].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-  }, [news])
 
   return (
-    <section className="section reveal" id="news">
-      <div className="container">
-        <h3 className="section-title">Tin tức mới nhất</h3>
-        <div className="news-grid">
-          {sorted.slice(0, 3).map((item) => (
-            <article key={item.id} className="card news-card">
-              <img src={item.img} alt={item.title} className="news-thumb" />
-              <div className="news-content">
-                <h4>{item.title}</h4>
-                <p className="news-date">{new Date(item.createdAt).toLocaleDateString('vi-VN')}</p>
-                <p>{item.excerpt}</p>
-                <Link to={`/news/${item.id}`} className="read-more">Đọc thêm</Link>
-              </div>
-            </article>
-          ))}
+    <section id="vouchers" className="bg-white px-5 py-16">
+      <div className="mx-auto max-w-6xl">
+        <div className="mb-7 flex items-end justify-between gap-4 max-[640px]:items-start max-[640px]:flex-col">
+          <div>
+            <h3 className="text-2xl font-extrabold text-slate-900">Voucher đang có</h3>
+            <p className="mt-2 text-slate-600">Mã ưu đãi đang mở cho khách hàng của Jokopi.</p>
+          </div>
+          <Link
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 font-bold text-emerald-700 no-underline transition hover:bg-emerald-100 hover:text-emerald-800"
+            to="/my-orders"
+          >
+            <TicketPercent className="size-4" />
+            Ví voucher
+          </Link>
         </div>
+
+        {loading && visibleVouchers.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-slate-500">
+            Đang tải voucher...
+          </div>
+        ) : visibleVouchers.length > 0 ? (
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-4">
+            {visibleVouchers.map((voucher) => {
+              const discountText =
+                voucher.discount_type === 'percent'
+                  ? `Giảm ${Number(voucher.discount_value || 0)}%`
+                  : `Giảm ${formatCurrency(Number(voucher.discount_value || 0))}`
+              const minOrder = voucher.min_order_amount
+                ? `Đơn từ ${formatCurrency(Number(voucher.min_order_amount))}`
+                : 'Không yêu cầu đơn tối thiểu'
+
+              return (
+                <article
+                  className="relative overflow-hidden rounded-3xl border border-emerald-100 bg-gradient-to-br from-white to-emerald-50 p-5 shadow-sm"
+                  key={voucher.id}
+                >
+                  <div className="mb-4 inline-flex rounded-full bg-emerald-500 px-3 py-1 text-xs font-extrabold uppercase tracking-[0.08em] text-white">
+                    {voucher.code}
+                  </div>
+                  <h4 className="mb-2 text-lg font-bold text-slate-900">{voucher.name}</h4>
+                  <div className="mb-2 text-2xl font-extrabold text-emerald-600">{discountText}</div>
+                  <p className="m-0 text-sm text-slate-600">{minOrder}</p>
+                  {voucher.max_discount_amount && (
+                    <p className="mt-1 text-sm text-slate-600">
+                      Tối đa {formatCurrency(Number(voucher.max_discount_amount))}
+                    </p>
+                  )}
+                  {voucher.type === 'coin_exchange' && (
+                    <span className="mt-4 inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">
+                      Đổi {Number(voucher.coin_cost || 0).toLocaleString('vi-VN')} xu
+                    </span>
+                  )}
+                </article>
+              )
+            })}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-slate-500">
+            Chưa có voucher khả dụng.
+          </div>
+        )}
       </div>
     </section>
   )
@@ -153,21 +176,23 @@ function NewsSection() {
 
 export default function HomePage() {
   const { products, loadFromAPI } = useProductStore()
-  const loadNews = useNewsStore((s) => s.loadFromAPI)
-
   const [q, setQ] = useState('')
   const [cat, setCat] = useState('')
   const [price, setPrice] = useState('')
 
-  const rootRef = useRef(null)
-
   useEffect(() => {
     loadFromAPI()
-    loadNews()
+  }, [loadFromAPI])
+
+  useEffect(() => {
+    if (window.location.hash !== '#vouchers') return
+    window.requestAnimationFrame(() => {
+      document.getElementById('vouchers')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
   }, [])
 
   const filteredProducts = useMemo(() => {
-    let result = (products || []).filter(p => {
+    const result = (products || []).filter((p) => {
       const matchQ = p.name.toLowerCase().includes(q.toLowerCase())
       const matchCat = !cat || p.category === cat
       return matchQ && matchCat
@@ -182,57 +207,22 @@ export default function HomePage() {
     return result
   }, [products, q, cat, price])
 
-  useEffect(() => {
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('visible')
-        }
-      })
-    }, { threshold: 0.1 })
-
-    if (rootRef.current) {
-      const reveals = rootRef.current.querySelectorAll('.reveal')
-      reveals.forEach((el) => observer.observe(el))
-    }
-
-    return () => observer.disconnect()
-  }, [])
-
   return (
     <>
-      <div ref={rootRef}>
-        <Banner />
-        <div className="reveal">
-          <AboutSection />
-        </div>
-        <div className="reveal">
-          <ActionsSection
-            q={q}
-            setQ={setQ}
-            cat={cat}
-            setCat={setCat}
-            price={price}
-            setPrice={setPrice}
-          />
-        </div>
-        <section className="section reveal" id="menu">
-          <div className="container">
-            <h3 className="section-title">Thực đơn của chúng tôi</h3>
-            <div className="grid">
-              {filteredProducts.map((p) => (
-                <ProductCard key={p.id} product={p} />
-              ))}
-            </div>
+      <Banner />
+      <AboutSection />
+      <ActionsSection q={q} setQ={setQ} cat={cat} setCat={setCat} price={price} setPrice={setPrice} />
+      <VoucherSection />
+      <section className="bg-slate-50 px-5 py-16" id="menu">
+        <div className="mx-auto max-w-6xl">
+          <h3 className="mb-7 text-2xl font-extrabold text-slate-900">Thực đơn của chúng tôi</h3>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-[18px]">
+            {filteredProducts.map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
           </div>
-        </section>
-        <div className="reveal">
-          <GallerySection />
         </div>
-        <div className="reveal">
-          <NewsSection />
-        </div>
-      </div>
+      </section>
     </>
   )
 }

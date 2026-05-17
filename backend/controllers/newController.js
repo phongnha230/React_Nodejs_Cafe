@@ -2,12 +2,33 @@ const News = require('../models/news');
 const User = require('../models/user');
 const upload = require('../middleware/uploadMiddleware');
 const validate = require('../middleware/validateMiddleware');
+const { cloudinary } = require('../config/cloudinary');
 
 // Validation schema for create/update
 const newsSchema = {
   title: { required: true, type: 'string', minLength: 5, maxLength: 255 },
   content: { required: true, type: 'string', minLength: 10 },
   status: { type: 'string', enum: ['draft', 'published', 'archived'] }
+};
+
+const resolveImageUrl = async (req) => {
+  if (req.file) {
+    return req.file.path;
+  }
+
+  const imageSource = req.body.image_url || req.body.image || req.body.img;
+  if (!imageSource) {
+    return undefined;
+  }
+
+  if (typeof imageSource === 'string' && imageSource.startsWith('data:image')) {
+    const uploadResponse = await cloudinary.v2.uploader.upload(imageSource, {
+      folder: 'cafe_app_uploads',
+    });
+    return uploadResponse.secure_url;
+  }
+
+  return imageSource;
 };
 
 const newController = {
@@ -80,25 +101,17 @@ const newController = {
   // Create new news article
   async create(req, res) {
     try {
-      const { title, content, status = 'draft', image_url } = req.body;
+      const { title, status = 'draft' } = req.body;
+      const content = req.body.content || req.body.excerpt;
       const userId = req.user.id;
-
-      // Handle image: prioritize body image_url (base64/URL), then file upload
-      let finalImageUrl = null;
-      if (image_url) {
-        // If image_url is provided in body (base64 or URL)
-        finalImageUrl = image_url;
-      } else if (req.file) {
-        // If file is uploaded via multipart/form-data
-        finalImageUrl = req.file.path;
-      }
+      const finalImageUrl = await resolveImageUrl(req);
 
       const news = await News.create({
         title,
         content,
         status,
         created_by: userId,
-        image_url: finalImageUrl
+        image_url: finalImageUrl || null
       });
 
       res.status(201).json(news);
@@ -112,7 +125,8 @@ const newController = {
   // Update news article
   async update(req, res) {
     try {
-      const { title, content, status, image_url } = req.body;
+      const { title, status } = req.body;
+      const content = req.body.content || req.body.excerpt;
       const news = await News.findByPk(req.params.id);
 
       if (!news) {
@@ -124,14 +138,14 @@ const newController = {
         return res.status(403).json({ message: 'Not authorized to update this news' });
       }
 
-      const updateData = { title, content, status };
+      const updateData = {};
+      if (title !== undefined) updateData.title = title;
+      if (content !== undefined) updateData.content = content;
+      if (status !== undefined) updateData.status = status;
+      if (req.body.is_pinned !== undefined) updateData.is_pinned = req.body.is_pinned;
 
-      // Handle image update: prioritize body image_url, then file upload
-      if (image_url) {
-        updateData.image_url = image_url;
-      } else if (req.file) {
-        updateData.image_url = req.file.path;
-      }
+      const finalImageUrl = await resolveImageUrl(req);
+      if (finalImageUrl !== undefined) updateData.image_url = finalImageUrl;
 
       await news.update(updateData);
       res.json(news);
