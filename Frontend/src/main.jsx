@@ -4,7 +4,6 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
 import { AppErrorBoundary } from './components/common/AppErrorBoundary.jsx';
 import './styles.css';
-import './footer-overrides.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

@@ -1,11 +1,12 @@
-import { useState } from 'react';
 import { useCartStore } from '../../stores/cartStore.js';
 import { useAuth } from '../../hooks/useAuth.js';
 import { useNotifyStore } from '../../stores/notifyStore.js';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useReviewStore } from '../../stores/reviewStore.js';
 import { ROUTES } from '../../config/routes';
 import { MESSAGES } from '../../constants/messages';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 export function ProductCard({ product }) {
   const add = useCartStore((s) => s.add);
@@ -13,45 +14,60 @@ export function ProductCard({ product }) {
   const notify = useNotifyStore();
   const navigate = useNavigate();
   const { avg, count } = useReviewStore((s) => s.average(product.id));
-  const [openRate, setOpenRate] = useState(false); // deprecated here; kept to avoid breaking, not used
+  const roundedAvg = Math.min(5, Math.max(0, Math.round(avg)));
+
   return (
-    <div className="card">
-      <img 
-        className="product-img" 
-        src={product.image} 
-        alt={product.name} 
-        style={{ filter: product.is_available ? 'none' : 'grayscale(100%)', opacity: product.is_available ? 1 : 0.6 }}
-      />
-      <div className="space-between">
-        <div>
-          <div style={{ fontWeight: 600 }}>{product.name}</div>
-          <div className="badge">{product.price.toLocaleString('vi-VN')}đ</div>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              marginTop: 4,
-            }}
+    <article className="group flex min-h-[318px] flex-col gap-3 rounded-2xl bg-card p-3 text-card-foreground shadow-[0_2px_8px_rgba(0,0,0,0.06)] transition-all duration-200 ease-out hover:-translate-y-1.5 hover:shadow-[0_12px_30px_rgba(0,0,0,0.12)] active:-translate-y-0.5">
+      <Link
+        to={ROUTES.PRODUCT_DETAIL(product.id)}
+        className="block overflow-hidden rounded-xl text-inherit no-underline"
+      >
+        <img
+          className={cn(
+            'h-[150px] w-full cursor-pointer object-cover transition duration-200 group-hover:scale-[1.03]',
+            !product.is_available && 'opacity-60 grayscale'
+          )}
+          src={product.image}
+          alt={product.name}
+        />
+      </Link>
+
+      <div className="flex flex-1 items-center justify-between gap-3">
+        <div className="min-w-0">
+          <Link
+            to={ROUTES.PRODUCT_DETAIL(product.id)}
+            className="block truncate text-inherit no-underline"
           >
-            <span style={{ color: '#f59e0b' }}>
-              {'★'.repeat(Math.round(avg))}
-              {'☆'.repeat(5 - Math.round(avg))}
+            <h3 className="cursor-pointer text-lg font-semibold leading-tight text-slate-700">
+              {product.name}
+            </h3>
+          </Link>
+
+          <div className="mt-2 inline-flex min-w-[132px] items-center rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700">
+            {product.price.toLocaleString('vi-VN')}đ
+          </div>
+
+          <div className="mt-3 flex items-center gap-1.5">
+            <span className="text-sm leading-none text-amber-500">
+              {'★'.repeat(roundedAvg)}
+              {'☆'.repeat(5 - roundedAvg)}
             </span>
-            <span className="muted">({count})</span>
+            <span className="text-slate-500">({count})</span>
           </div>
-          <div style={{ marginTop: 6 }}>
-            <button
-              type="button"
-              className="review-link"
-              onClick={() => navigate(ROUTES.PRODUCT_REVIEWS(product.id))}
-            >
-              Xem chi tiết đánh giá
-            </button>
-          </div>
+
+          <Link
+            to={ROUTES.PRODUCT_DETAIL(product.id)}
+            className="mt-4 inline-flex text-lg font-bold text-emerald-500 no-underline transition hover:text-emerald-600 hover:underline"
+          >
+            Xem chi tiết
+          </Link>
         </div>
-        <button
-          className={`btn ${!product.is_available ? 'secondary' : ''}`}
+
+        <Button
+          className={cn(
+            'h-12 shrink-0 rounded-2xl bg-emerald-400 px-4 text-lg font-semibold text-white shadow-none hover:bg-emerald-500',
+            !product.is_available && 'bg-slate-800 hover:bg-slate-800'
+          )}
           disabled={!product.is_available}
           onClick={() => {
             if (isGuest) {
@@ -73,9 +89,8 @@ export function ProductCard({ product }) {
           }}
         >
           {product.is_available ? 'Order' : 'Hết hàng'}
-        </button>
+        </Button>
       </div>
-      {/* Rating is only allowed after purchase from CustomerOrders page */}
-    </div>
+    </article>
   )
 }

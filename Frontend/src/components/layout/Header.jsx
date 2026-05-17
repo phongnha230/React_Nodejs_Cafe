@@ -1,11 +1,19 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
-import { FiShoppingBag } from 'react-icons/fi';
+import { Coffee, LogIn, LogOut, Menu, ShoppingBag } from 'lucide-react';
 import { useCartStore } from '../../stores/cartStore.js';
 import { useAuth } from '../../hooks/useAuth.js';
 import { useNotifyStore } from '../../stores/notifyStore.js';
 import { ROUTES } from '../../config/routes';
 import { MESSAGES } from '../../constants/messages';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+
+const navLinkClass = ({ isActive } = {}) =>
+  cn(
+    'relative inline-flex items-center rounded-xl px-4 py-2 text-[15px] font-semibold text-slate-500 no-underline transition hover:bg-violet-50 hover:text-violet-600',
+    'after:absolute after:bottom-1 after:left-4 after:right-4 after:h-0.5 after:rounded-full after:bg-transparent after:transition',
+    isActive && 'bg-violet-50 text-violet-600 after:bg-violet-600'
+  );
 
 export function Header({ onMenuClick }) {
   const count = useCartStore((s) => (
@@ -15,139 +23,109 @@ export function Header({ onMenuClick }) {
   ));
   const { logout, customerName, isAdmin, isCustomer, isGuest } = useAuth();
   const navigate = useNavigate();
-  const [activeSection, setActiveSection] = useState('');
   const toast = useNotifyStore();
-
-  useEffect(() => {
-    const ids = ['about', 'activities', 'news', 'menu', 'contact'];
-    const handler = () => {
-      let current = '';
-      for (const id of ids) {
-        const el = document.getElementById(id);
-        if (!el) continue;
-        const rect = el.getBoundingClientRect();
-        if (rect.top <= 110 && rect.bottom > 110) {
-          current = id;
-          break;
-        }
-      }
-      setActiveSection(current);
-    };
-
-    window.addEventListener('scroll', handler, { passive: true });
-    handler();
-    return () => window.removeEventListener('scroll', handler);
-  }, []);
-
-  const goto = (id) => (e) => {
-    e.preventDefault();
-    const el = document.getElementById(id);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      setActiveSection(id);
-    }
-  };
+  const voucherRoute = `${ROUTES.HOME}#vouchers`;
 
   return (
-    <div className="header">
-      <div className="header-top-bar"></div>
-      <div className="container header-inner">
-        {isAdmin && (
-          <button
-            className="hamburger-btn"
-            onClick={onMenuClick}
-            title="Mở menu quản lý"
-            aria-label="Toggle Sidebar"
-          >
-            <span></span>
-            <span></span>
-            <span></span>
-          </button>
-        )}
+    <header className="sticky top-0 z-40 bg-white shadow-[0_2px_18px_rgba(14,20,24,0.06)] backdrop-blur-md">
+      <div className="h-1 w-full bg-gradient-to-r from-pink-400 to-rose-700" />
 
-        <div className="brand">
-          <div className="brand-logo">☕</div>
-          <span className="brand-name">
-            jokopi.
-            <span className="brand-suffix">{isAdmin ? 'Admin' : 'Home'}</span>
-          </span>
+      <div className="mx-auto flex min-h-20 max-w-[1400px] items-center justify-between gap-6 px-6 py-3 max-[880px]:min-h-0 max-[880px]:flex-col max-[880px]:items-stretch max-[880px]:gap-2 max-[880px]:px-3.5">
+        <div className="flex items-center gap-3">
+          {isAdmin && (
+            <Button
+              type="button"
+              size="icon-lg"
+              onClick={onMenuClick}
+              title="Mở menu quản lý"
+              aria-label="Mở menu quản lý"
+              className="mr-1 rounded-[10px] bg-violet-600 text-white shadow-[0_4px_12px_rgba(107,76,230,0.2)] hover:-translate-y-0.5 hover:bg-violet-700 hover:shadow-[0_6px_16px_rgba(107,76,230,0.3)]"
+            >
+              <Menu className="size-5" />
+            </Button>
+          )}
+
+          <Link
+            to={ROUTES.HOME}
+            className="flex items-center gap-3 text-inherit no-underline transition hover:scale-[1.02]"
+          >
+            <span className="inline-flex size-12 items-center justify-center rounded-[14px] bg-gradient-to-br from-violet-600 to-violet-400 text-white shadow-[0_8px_20px_rgba(107,76,230,0.2)] max-[520px]:size-10">
+              <Coffee className="size-6 max-[520px]:size-5" />
+            </span>
+            <span className="text-2xl font-extrabold text-slate-900 max-[520px]:text-xl">
+              jokopi.
+              <span className="ml-0.5 font-bold text-violet-600">
+                {isAdmin ? 'Admin' : 'Home'}
+              </span>
+            </span>
+          </Link>
         </div>
 
-        <nav className="nav">
-          <NavLink
-            to={ROUTES.HOME}
-            end
-            className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
-          >
+        <nav className="flex items-center gap-2 max-[880px]:overflow-x-auto max-[880px]:px-1.5 max-[880px]:py-1.5 max-[880px]:[mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)] max-[880px]:[-webkit-mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]">
+          <NavLink to={ROUTES.HOME} end className={navLinkClass}>
             Trang chủ
           </NavLink>
-          <a
-            href="#menu"
-            onClick={goto('menu')}
-            className={`nav-link ${activeSection === 'menu' ? 'active' : ''}`}
-          >
+          <NavLink to={ROUTES.MENU} className={navLinkClass}>
             Thực đơn
-          </a>
-          <a
-            href="#activities"
-            onClick={goto('activities')}
-            className={`nav-link ${activeSection === 'activities' ? 'active' : ''}`}
-          >
+          </NavLink>
+          <NavLink to={ROUTES.ACTIVITIES} className={navLinkClass}>
             Hoạt động
-          </a>
-          <a
-            href="#news"
-            onClick={goto('news')}
-            className={`nav-link ${activeSection === 'news' ? 'active' : ''}`}
-          >
+          </NavLink>
+          <NavLink to={ROUTES.NEWS} className={navLinkClass}>
             Tin tức
-          </a>
-          <a
-            href="#contact"
-            onClick={goto('contact')}
-            className={`nav-link ${activeSection === 'contact' ? 'active' : ''}`}
-          >
-            Liên hệ
-          </a>
-          <Link
-            to={ROUTES.CART}
-            className="nav-link cart-link"
-            aria-label={`Giỏ hàng, ${count} sản phẩm`}
-          >
-            <span className="cart-link-icon" aria-hidden="true">
-              <FiShoppingBag />
-            </span>
-            <span className="cart-link-text">Giỏ hàng</span>
-            <span className="cart-link-count">{count}</span>
+          </NavLink>
+          <Link to={voucherRoute} className={navLinkClass()}>
+            Voucher
           </Link>
+
           {isCustomer && (
-            <NavLink
-              to={ROUTES.MY_ORDERS}
-              className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}
-            >
+            <NavLink to={ROUTES.MY_ORDERS} className={navLinkClass}>
               Đơn của tôi
             </NavLink>
           )}
         </nav>
 
-        <div className="header-cta">
+        <div className="flex shrink-0 items-center justify-end gap-2.5 max-[880px]:gap-2">
+          <Link
+            to={ROUTES.CART}
+            className="relative inline-flex size-11 shrink-0 items-center justify-center rounded-full text-slate-600 no-underline transition hover:bg-slate-100 hover:text-violet-600"
+            aria-label={`Giỏ hàng, ${count} sản phẩm`}
+          >
+            <ShoppingBag className="size-[22px]" />
+            {count > 0 && (
+              <span className="absolute right-0.5 top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-white bg-red-500 px-1 text-[11px] font-bold leading-none text-white">
+                {count}
+              </span>
+            )}
+          </Link>
+
           {isGuest ? (
-            <Link className="btn login-btn" to={ROUTES.LOGIN}>
-              <span className="btn-icon">🔑</span> Đăng nhập
+            <Link
+              to={ROUTES.LOGIN}
+              className="inline-flex h-10 items-center justify-center gap-1.5 rounded-2xl bg-gradient-to-br from-teal-400 to-teal-600 px-4 text-sm font-semibold text-white no-underline shadow-[0_6px_18px_rgba(56,178,172,0.18)] transition hover:-translate-y-0.5 hover:from-teal-500 hover:to-teal-700 hover:text-white hover:shadow-[0_10px_28px_rgba(56,178,172,0.22)] max-[520px]:px-3 max-[520px]:text-[13px]"
+            >
+              <LogIn className="size-4" />
+              Đăng nhập
             </Link>
           ) : (
-            <div className="user-profile">
-              <div className="user-info">
-                <div className="user-avatar">
+            <div className="flex items-center gap-4 rounded-full border border-slate-200 bg-slate-50 py-1.5 pl-4 pr-1.5 transition hover:border-slate-300 hover:bg-slate-100 hover:shadow-[0_4px_12px_rgba(0,0,0,0.05)]">
+              <div className="flex items-center gap-3">
+                <div className="flex size-9 items-center justify-center rounded-full bg-violet-600 text-sm font-extrabold text-white shadow-[0_4px_8px_rgba(107,76,230,0.2)]">
                   {customerName ? customerName.charAt(0).toUpperCase() : 'A'}
                 </div>
-                <div className="user-details">
-                  <span className="user-name">{customerName || 'Admin'}</span>
-                  <span className="user-role">{isAdmin ? 'Quản trị viên' : 'Khách hàng'}</span>
+                <div className="flex flex-col max-[520px]:hidden">
+                  <span className="text-sm font-bold leading-tight text-slate-800">
+                    {customerName || 'Admin'}
+                  </span>
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    {isAdmin ? 'Quản trị viên' : 'Khách hàng'}
+                  </span>
                 </div>
               </div>
-              <button
-                className="logout-btn-premium"
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-lg"
                 onClick={() => {
                   toast.show({
                     message: MESSAGES.CONFIRM.LOGOUT,
@@ -160,13 +138,15 @@ export function Header({ onMenuClick }) {
                   });
                 }}
                 title="Đăng xuất"
+                aria-label="Đăng xuất"
+                className="size-9 rounded-full border-slate-200 bg-white text-slate-500 transition hover:rotate-90 hover:border-red-300 hover:bg-red-50 hover:text-red-600"
               >
-                🚪
-              </button>
+                <LogOut className="size-4" />
+              </Button>
             </div>
           )}
         </div>
       </div>
-    </div>
+    </header>
   );
 }
