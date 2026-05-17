@@ -13,6 +13,9 @@ module.exports = (sequelize) => {
     Notification,
     News,
     Table,
+    CoinTransaction,
+    Voucher,
+    UserVoucher,
   } = sequelize.models;
 
   if (Order && OrderItem) {
@@ -38,6 +41,34 @@ module.exports = (sequelize) => {
   if (User && Review) {
     User.hasMany(Review, { foreignKey: 'user_id', as: 'reviews' });
     Review.belongsTo(User, { foreignKey: 'user_id' });
+  }
+
+  if (User && CoinTransaction) {
+    User.hasMany(CoinTransaction, { foreignKey: 'user_id', as: 'coin_transactions' });
+    CoinTransaction.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+  }
+
+  if (Review && CoinTransaction) {
+    Review.hasOne(CoinTransaction, { foreignKey: 'review_id', as: 'coin_reward' });
+    CoinTransaction.belongsTo(Review, { foreignKey: 'review_id', as: 'review' });
+  }
+
+  if (User && UserVoucher) {
+    User.hasMany(UserVoucher, { foreignKey: 'user_id', as: 'user_vouchers' });
+    UserVoucher.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+  }
+
+  if (Voucher && UserVoucher) {
+    Voucher.hasMany(UserVoucher, { foreignKey: 'voucher_id', as: 'user_vouchers' });
+    UserVoucher.belongsTo(Voucher, { foreignKey: 'voucher_id', as: 'voucher' });
+  }
+
+  if (Order && Voucher) {
+    Order.belongsTo(Voucher, { foreignKey: 'voucher_id', as: 'voucher' });
+  }
+
+  if (Order && UserVoucher) {
+    Order.belongsTo(UserVoucher, { foreignKey: 'user_voucher_id', as: 'user_voucher' });
   }
 
   if (Product && Review) {

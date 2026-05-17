@@ -12,6 +12,7 @@ export const API_ENDPOINTS = {
     REGISTER: '/users/register',
     PROFILE: '/users/me',
     LIST: '/users',
+    CREATE: '/users',
     DETAIL: (id) => `/users/${id}`,
     UPDATE: (id) => `/users/${id}`,
     DELETE: (id) => `/users/${id}`,
@@ -51,6 +52,15 @@ export const API_ENDPOINTS = {
     CREATE: '/reviews',
     UPDATE: (id) => `/reviews/${id}`,
     DELETE: (id) => `/reviews/${id}`,
+  },
+  VOUCHERS: {
+    LIST: '/vouchers',
+    WALLET: '/vouchers/wallet',
+    REDEEM: (id) => `/vouchers/${id}/redeem`,
+    ADMIN_LIST: '/vouchers/admin',
+    ADMIN_CREATE: '/vouchers/admin',
+    ADMIN_UPDATE: (id) => `/vouchers/admin/${id}`,
+    ADMIN_DELETE: (id) => `/vouchers/admin/${id}`,
   },
   MENU: {
     LIST: '/menu-sections',

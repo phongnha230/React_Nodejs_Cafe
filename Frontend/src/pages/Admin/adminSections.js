@@ -6,6 +6,7 @@ export const ADMIN_SECTIONS = [
   'menu',
   'news',
   'activities',
+  'vouchers',
   'orders',
   'tables',
 ]
