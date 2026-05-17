@@ -51,16 +51,7 @@ export function MenuPage() {
   return (
     <div className="container">
       {qrTableNumber > 0 && (
-        <div
-          style={{
-            marginBottom: '16px',
-            padding: '14px 18px',
-            borderRadius: '14px',
-            background: 'linear-gradient(135deg, #ecfeff 0%, #f0fdf4 100%)',
-            border: '1px solid #99f6e4',
-            color: '#155e75',
-          }}
-        >
+        <div className="mb-4 rounded-2xl border border-teal-200 bg-gradient-to-br from-cyan-50 to-emerald-50 px-4 py-3.5 text-cyan-900">
           <strong>QR Order dang bat:</strong> Ban {qrTableNumber}. Mon ban chon se duoc gan vao dung ban nay khi thanh toan.
         </div>
       )}
@@ -72,7 +63,7 @@ export function MenuPage() {
         price={price}
         setPrice={setPrice}
       />
-      <div className="grid">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-[18px]">
         {list.map((p) => (
           <ProductCard key={p.id} product={p} />
         ))}

@@ -7,7 +7,8 @@
         "start": "node app.js",
         "dev": "nodemon app.js",
         "test": "jest",
-        "seed:tables": "node scripts/seedTables.js"
+        "seed:tables": "node scripts/seedTables.js",
+        "test:cloudinary": "node scripts/testCloudinaryUpload.js"
     },
     "dependencies": {
         "bcryptjs": "^3.0.2",

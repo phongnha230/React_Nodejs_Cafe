@@ -4,6 +4,23 @@ import reviewService from '../services/reviewService.js';
 
 const genId = () => (crypto?.randomUUID ? crypto.randomUUID() : `r_${Date.now()}_${Math.random().toString(36).slice(2)}`);
 
+const unwrapReview = (response) => response?.data?.data ?? response?.data;
+
+const getReviewUserName = (review = {}) => (
+  review.userName ||
+  review.customerName ||
+  review.customer_name ||
+  review.User?.username ||
+  review.user?.username ||
+  null
+);
+
+const formatReview = (review, fallback = {}) => ({
+  ...review,
+  userName: getReviewUserName(review) || fallback.userName || null,
+  media_url: review.media_url || review.mediaUrl || fallback.mediaUrl || fallback.media_url || null,
+});
+
 export const useReviewStore = create((set, get) => ({
   reviews: storage.get('reviews') || [],
   loading: false,
@@ -15,7 +32,8 @@ export const useReviewStore = create((set, get) => ({
     try {
       const params = productId ? { product_id: productId } : {};
       const response = await reviewService.getAll(params);
-      const apiReviews = response.data || [];
+      const payload = response.data;
+      const apiReviews = Array.isArray(payload) ? payload : (payload?.data || []);
       set({ reviews: apiReviews, loading: false });
       storage.set('reviews', apiReviews);
       return apiReviews;
@@ -27,20 +45,21 @@ export const useReviewStore = create((set, get) => ({
   },
 
   // Add new review
-  async add({ productId, userName, rating, comment }) {
+  async add({ productId, userName, rating, comment, mediaUrl }) {
     set({ loading: true, error: null });
     try {
       const response = await reviewService.create({
         product_id: productId,
         userName,
         rating: Number(rating) || 0,
-        comment: comment || ''
+        comment: comment || '',
+        media_url: mediaUrl || null
       });
-      const newReview = response.data;
+      const newReview = formatReview(unwrapReview(response), { mediaUrl, userName });
       const next = [newReview, ...get().reviews];
       set({ reviews: next, loading: false });
       storage.set('reviews', next);
-      return newReview.id;
+      return newReview;
     } catch (error) {
       console.error('Add review failed:', error);
       set({ error: error.message, loading: false });
@@ -81,20 +100,29 @@ export const useReviewStore = create((set, get) => ({
   // Check if user has already reviewed a product
   getReview(productId, userName) {
     const pid = Number(productId);
-    return get().reviews.find(r => (Number(r.product_id) === pid || Number(r.productId) === pid) && r.userName === userName);
+    return get().reviews.find(r => (
+      (Number(r.product_id) === pid || Number(r.productId) === pid) &&
+      getReviewUserName(r) === userName
+    ));
   },
 
   hasReviewed(productId, userName) {
     const pid = Number(productId);
-    return !!get().reviews.find(r => (Number(r.product_id) === pid || Number(r.productId) === pid) && r.userName === userName);
+    return !!get().reviews.find(r => (
+      (Number(r.product_id) === pid || Number(r.productId) === pid) &&
+      getReviewUserName(r) === userName
+    ));
   },
 
   // Update a review
-  async updateReview(id, { rating, comment }) {
+  async updateReview(id, { rating, comment, mediaUrl }) {
     set({ loading: true, error: null });
     try {
-      const response = await reviewService.update(id, { rating, comment });
-      const updated = response.data;
+      const updateData = { rating, comment };
+      if (mediaUrl !== undefined) updateData.media_url = mediaUrl;
+
+      const response = await reviewService.update(id, updateData);
+      const updated = formatReview(unwrapReview(response), { mediaUrl });
       const next = get().reviews.map(r => r.id === id ? updated : r);
       set({ reviews: next, loading: false });
       storage.set('reviews', next);

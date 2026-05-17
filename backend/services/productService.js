@@ -89,7 +89,7 @@ class ProductService {
      * @returns {Promise<object>} Created product
      */
     async createProduct(productData) {
-        const { name, image_url, category, is_available = true } = productData;
+        const { name, image_url, category, description, is_available = true } = productData;
         const price = Number(productData.price);
 
         // Validation
@@ -106,6 +106,7 @@ class ProductService {
             price,
             image_url: image_url || null,
             category: category || null,
+            description: description || null,
             is_available
         });
 
@@ -127,7 +128,7 @@ class ProductService {
             throw new Error('Product not found');
         }
 
-        const { name, image_url, category, is_available } = updateData;
+        const { name, image_url, category, description, is_available } = updateData;
         const price = updateData.price !== undefined ? Number(updateData.price) : undefined;
 
         // Validate price if provided
@@ -140,6 +141,7 @@ class ProductService {
             price: Number.isFinite(price) ? price : product.price,
             image_url: image_url !== undefined ? image_url : product.image_url,
             category: category !== undefined ? category : product.category,
+            description: description !== undefined ? description : product.description,
             is_available: typeof is_available === 'boolean' ? is_available : product.is_available
         });
 

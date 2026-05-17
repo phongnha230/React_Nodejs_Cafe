@@ -6,6 +6,34 @@
 const reviewService = require('../services/reviewService');
 const { success, error, created, paginated } = require('../utils/responseFormatter');
 const logger = require('../config/logger');
+const upload = require('../middleware/uploadMiddleware');
+const { cloudinary } = require('../config/cloudinary');
+
+exports.uploadMedia = upload.single('media');
+
+const resolveReviewMediaUrl = async (req) => {
+  if (req.file) {
+    return req.file.path;
+  }
+
+  const mediaSource = req.body.media_url || req.body.mediaUrl || req.body.media;
+  if (!mediaSource) {
+    return undefined;
+  }
+
+  if (
+    typeof mediaSource === 'string' &&
+    (mediaSource.startsWith('data:image') || mediaSource.startsWith('data:video'))
+  ) {
+    const uploadResponse = await cloudinary.v2.uploader.upload(mediaSource, {
+      folder: 'cafe_app_review_uploads',
+      resource_type: 'auto',
+    });
+    return uploadResponse.secure_url;
+  }
+
+  return mediaSource;
+};
 
 /**
  * Create new review
@@ -16,7 +44,11 @@ exports.create = async (req, res) => {
       return res.status(401).json(error('Authentication required', 401));
     }
 
-    const review = await reviewService.createReview(req.user.id, req.body);
+    const mediaUrl = await resolveReviewMediaUrl(req);
+    const review = await reviewService.createReview(req.user.id, {
+      ...req.body,
+      media_url: mediaUrl
+    });
     res.status(201).json(created(review, 'Review created successfully'));
   } catch (err) {
     logger.error('Create review error:', err);
@@ -97,7 +129,11 @@ exports.update = async (req, res) => {
       return res.status(400).json(error('Invalid review ID', 400));
     }
 
-    const review = await reviewService.updateReview(id, req.user.id, req.body);
+    const mediaUrl = await resolveReviewMediaUrl(req);
+    const review = await reviewService.updateReview(id, req.user.id, {
+      ...req.body,
+      ...(mediaUrl !== undefined ? { media_url: mediaUrl } : {})
+    });
     res.json(success(review, 'Review updated successfully'));
   } catch (err) {
     if (err.message === 'Review not found') {

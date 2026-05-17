@@ -4,12 +4,16 @@
  */
 
 const Review = require('../models/review');
+const sequelize = require('../config/database');
 const Order = require('../models/order');
 const OrderItem = require('../models/orderItem');
 const Payment = require('../models/payment');
 const User = require('../models/user');
+const CoinTransaction = require('../models/coinTransaction');
 const { ORDER_STATUS } = require('../constants/orderStatus');
 const logger = require('../config/logger');
+
+const REVIEW_REWARD_COINS = Number(process.env.REVIEW_REWARD_COINS || 10);
 
 class ReviewService {
     /**
@@ -19,19 +23,21 @@ class ReviewService {
      * @returns {Promise<object>} Created review
      */
     async createReview(userId, reviewData) {
-        const { product_id, rating, comment } = reviewData;
+        const { product_id, rating, comment, media_url } = reviewData;
+        const productId = Number(product_id);
+        const ratingValue = Number(rating);
 
         // Validation
-        if (!product_id || typeof rating !== 'number') {
+        if (!Number.isInteger(productId) || !Number.isFinite(ratingValue)) {
             throw new Error('Product ID and numeric rating are required');
         }
 
-        if (rating < 1 || rating > 5) {
+        if (ratingValue < 1 || ratingValue > 5) {
             throw new Error('Rating must be between 1 and 5');
         }
 
         // Check if user has purchased and received the product
-        const hasPurchased = await this.checkUserPurchased(userId, product_id);
+        const hasPurchased = await this.checkUserPurchased(userId, productId);
         if (!hasPurchased) {
             throw new Error('You can only review products you have purchased and received');
         }
@@ -39,7 +45,7 @@ class ReviewService {
         // Check if user already reviewed this product
         const existingReview = await Review.findOne({
             where: {
-                product_id,
+                product_id: productId,
                 user_id: userId
             }
         });
@@ -48,22 +54,51 @@ class ReviewService {
             throw new Error('You have already reviewed this product. Please update your existing review instead.');
         }
 
-        // Create review
-        const review = await Review.create({
-            product_id,
-            rating,
-            comment: comment || null,
-            user_id: userId
-        });
+        const transaction = await sequelize.transaction();
+        let review;
+
+        try {
+            // Create review
+            review = await Review.create({
+                product_id: productId,
+                rating: ratingValue,
+                comment: comment || null,
+                media_url: media_url || null,
+                user_id: userId
+            }, { transaction });
+
+            if (REVIEW_REWARD_COINS > 0) {
+                await User.increment(
+                    { coins: REVIEW_REWARD_COINS },
+                    { where: { id: userId }, transaction }
+                );
+
+                await CoinTransaction.create({
+                    user_id: userId,
+                    review_id: review.id,
+                    amount: REVIEW_REWARD_COINS,
+                    type: 'review_reward',
+                    description: 'Reward for product review'
+                }, { transaction });
+            }
+
+            await transaction.commit();
+        } catch (error) {
+            await transaction.rollback();
+            throw error;
+        }
 
         logger.info('Review created', {
             reviewId: review.id,
             userId,
-            productId: product_id,
-            rating
+            productId,
+            rating: ratingValue
         });
 
-        return review;
+        return {
+            ...review.toJSON(),
+            reward_coins: REVIEW_REWARD_COINS
+        };
     }
 
     /**
@@ -180,16 +215,18 @@ class ReviewService {
             throw new Error('You can only update your own reviews');
         }
 
-        const { rating, comment } = updateData;
+        const { rating, comment, media_url } = updateData;
+        const ratingValue = rating !== undefined ? Number(rating) : undefined;
 
         // Validate rating if provided
-        if (typeof rating === 'number' && (rating < 1 || rating > 5)) {
+        if (rating !== undefined && (!Number.isFinite(ratingValue) || ratingValue < 1 || ratingValue > 5)) {
             throw new Error('Rating must be between 1 and 5');
         }
 
         await review.update({
-            rating: typeof rating === 'number' ? rating : review.rating,
-            comment: comment !== undefined ? comment : review.comment
+            rating: rating !== undefined ? ratingValue : review.rating,
+            comment: comment !== undefined ? comment : review.comment,
+            media_url: media_url !== undefined ? media_url : review.media_url
         });
 
         logger.info('Review updated', { reviewId, userId });

@@ -13,6 +13,7 @@ const formatProduct = (product) => ({
   price: parseFloat(product.price),
   category: product.category,
   image: product.image_url,
+  description: product.description || null,
   is_available: !!product.is_available,
 });
 
@@ -44,6 +45,7 @@ export const useProductStore = create((set, get) => ({
           price: parseFloat(p.price),
           category: p.category,
           image: p.image_url, // Backend dùng image_url, frontend dùng image
+          description: p.description || null,
           is_available: !!p.is_available,
         }));
         set({ products: formattedProducts, loading: false });
@@ -97,6 +99,7 @@ export const useProductStore = create((set, get) => ({
       if (patch.price !== undefined) updateData.price = patch.price;
       if (patch.category !== undefined) updateData.category = patch.category;
       if (patch.image !== undefined) updateData.image_url = patch.image;
+      if (patch.description !== undefined) updateData.description = patch.description;
       if (patch.is_available !== undefined) updateData.is_available = patch.is_available;
 
       const response = await productService.update(id, updateData);
