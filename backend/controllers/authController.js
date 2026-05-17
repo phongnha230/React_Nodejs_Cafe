@@ -27,6 +27,7 @@ exports.register = async (req, res) => {
         username: user.username,
         email: user.email,
         role: user.role,
+        coins: user.coins || 0,
         createdAt,
       },
     });
@@ -75,6 +76,7 @@ exports.login = async (req, res) => {
         username: user.username,
         email: user.email,
         role: user.role,
+        coins: user.coins || 0,
         createdAt,
       },
     });
@@ -86,7 +88,7 @@ exports.login = async (req, res) => {
 exports.me = async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id, {
-      attributes: ['id', 'username', 'email', 'role', 'created_at']
+      attributes: ['id', 'username', 'email', 'role', 'coins', 'created_at']
     });
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
@@ -96,6 +98,7 @@ exports.me = async (req, res) => {
       username: user.username,
       email: user.email,
       role: user.role,
+      coins: user.coins || 0,
       createdAt: user.created_at,
     });
   } catch (err) {

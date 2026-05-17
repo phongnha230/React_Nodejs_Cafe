@@ -23,7 +23,7 @@ class UserService {
 
         const { count, rows } = await User.findAndCountAll({
             where,
-            attributes: ['id', 'username', 'email', 'role', 'name', 'login_count', 'last_login_at', 'created_at', 'updated_at'],
+            attributes: ['id', 'username', 'email', 'role', 'name', 'coins', 'login_count', 'last_login_at', 'created_at', 'updated_at'],
             limit: parseInt(limit),
             offset: parseInt(offset),
             order: [['id', 'DESC']]
@@ -47,7 +47,7 @@ class UserService {
      */
     async getUserById(userId) {
         const user = await User.findByPk(userId, {
-            attributes: ['id', 'username', 'email', 'role', 'name', 'login_count', 'last_login_at', 'created_at', 'updated_at']
+            attributes: ['id', 'username', 'email', 'role', 'name', 'coins', 'login_count', 'last_login_at', 'created_at', 'updated_at']
         });
 
         if (!user) {

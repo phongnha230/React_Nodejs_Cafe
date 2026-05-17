@@ -21,6 +21,21 @@ exports.list = async (req, res) => {
 };
 
 /**
+ * Create user (admin only)
+ */
+exports.create = async (req, res) => {
+  try {
+    const user = await userService.createUser(req.body);
+    res.status(201).json(success(user, 'User created successfully'));
+  } catch (err) {
+    if (err.message.includes('already exists')) {
+      return res.status(400).json(error(err.message, 400));
+    }
+    res.status(500).json(error('Create user error', 500, err.message));
+  }
+};
+
+/**
  * Get user by ID
  */
 exports.get = async (req, res) => {

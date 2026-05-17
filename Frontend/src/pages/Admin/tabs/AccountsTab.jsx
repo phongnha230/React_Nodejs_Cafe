@@ -1,8 +1,23 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import userService from '../../../services/userService.js'
 import { formatDateTime, formatDate } from './utils.js'
+import { Pagination } from '../../../components/common/Pagination.jsx'
 
 export function AccountsTab({ users, usersLoading, loadUsers, removeUser }) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [users]);
+
+  const customers = users.filter(u => u.role !== 'admin');
+  const totalPages = Math.ceil(customers.length / itemsPerPage);
+  const currentCustomers = customers.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
   const handleDeleteUser = async (userId) => {
     if (!confirm('Bạn chắc chắn muốn xóa tài khoản này?')) return
     try {
@@ -20,7 +35,7 @@ export function AccountsTab({ users, usersLoading, loadUsers, removeUser }) {
       <h3>Quản lý đăng nhập</h3>
 
       <form
-        className="newsletter-form"
+        className="newsletter-form account-form"
         onSubmit={async (e) => {
           e.preventDefault()
           const f = e.currentTarget
@@ -35,7 +50,7 @@ export function AccountsTab({ users, usersLoading, loadUsers, removeUser }) {
           }
 
           try {
-            await userService.register({
+            await userService.create({
               username,
               email,
               password,
@@ -71,6 +86,8 @@ export function AccountsTab({ users, usersLoading, loadUsers, removeUser }) {
         <select name="role" className="newsletter-input">
           <option value="customer">Customer</option>
           <option value="admin">Admin</option>
+          <option value="staff">Staff</option>
+          <option value="barista">Barista</option>
         </select>
         <button className="btn">Thêm tài khoản</button>
       </form>
@@ -108,7 +125,7 @@ export function AccountsTab({ users, usersLoading, loadUsers, removeUser }) {
               </tr>
             </thead>
             <tbody>
-              {users.filter(u => u.role !== 'admin').length === 0 ? (
+              {customers.length === 0 ? (
                 <tr>
                   <td
                     colSpan="8"
@@ -118,9 +135,7 @@ export function AccountsTab({ users, usersLoading, loadUsers, removeUser }) {
                   </td>
                 </tr>
               ) : (
-                users
-                  .filter(u => u.role !== 'admin')
-                  .map((user) => (
+                currentCustomers.map((user) => (
                     <tr key={user.id}>
                       <td>{user.id}</td>
                       <td>{user.email}</td>
@@ -162,6 +177,14 @@ export function AccountsTab({ users, usersLoading, loadUsers, removeUser }) {
               )}
             </tbody>
           </table>
+          
+          {totalPages > 1 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
+          )}
         </>
       )}
     </div>

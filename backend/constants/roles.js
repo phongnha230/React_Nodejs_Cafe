@@ -5,5 +5,7 @@
 
 module.exports = {
     ADMIN: 'admin',
+    STAFF: 'staff',
+    BARISTA: 'barista',
     CUSTOMER: 'customer'
 };

@@ -19,6 +19,8 @@ Khi thay đổi, **BẮT BUỘC** phải update cả 2 nơi!
 ```javascript
 {
   ADMIN: 'admin',
+  STAFF: 'staff',
+  BARISTA: 'barista',
   CUSTOMER: 'customer'
 }
 ```

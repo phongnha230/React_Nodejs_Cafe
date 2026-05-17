@@ -7,6 +7,7 @@ const userService = {
 
   // Admin user management
   getAll: (params) => api.get(API_ENDPOINTS.USERS.LIST, { params }),
+  create: (data) => api.post(API_ENDPOINTS.USERS.CREATE, data),
   getById: (id) => api.get(API_ENDPOINTS.USERS.DETAIL(id)),
   update: (id, data) => api.put(API_ENDPOINTS.USERS.UPDATE(id), data),
   delete: (id) => api.delete(API_ENDPOINTS.USERS.DELETE(id)), 

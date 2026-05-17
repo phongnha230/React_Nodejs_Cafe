@@ -40,6 +40,11 @@ const User = sequelize.define('User', {
     type: DataTypes.DATE,
     allowNull: true,
   },
+  coins: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+    allowNull: false,
+  },
 }, {
   timestamps: true,
   createdAt: 'created_at',
