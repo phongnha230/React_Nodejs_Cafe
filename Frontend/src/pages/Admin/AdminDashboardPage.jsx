@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Trash2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { useOrderStore } from '../../stores/orderStore.js'
 import { useUsersStore } from '../../stores/usersStore.js'
 import { useNewsStore } from '../../stores/newsStore.js'
@@ -13,12 +15,14 @@ import {
   getAdminSectionHref,
 } from './adminSections.js'
 import { getOrderTableNumber } from './tabs/utils.js'
+import { ROLES } from '../../constants/roles.js'
 
 export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
   const location = useLocation()
   const navigate = useNavigate()
   const activeTab = getAdminSectionFromPathname(location.pathname)
   const customerName = useAuthStore((s) => s.customerName)
+  const role = useAuthStore((s) => s.role)
 
   const [tables, setTables] = useState([])
   const [loadingTables, setLoadingTables] = useState(false)
@@ -26,7 +30,8 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
 
   const orders = useOrderStore((s) => s.orders)
   const loadOrders = useOrderStore((s) => s.loadFromAPI)
-  const stats = useOrderStore((s) => s.stats())
+  const [revenueRange, setRevenueRange] = useState('7d')
+  const stats = useOrderStore((s) => s.stats(revenueRange))
   const setOrderStatus = useOrderStore((s) => s.updateStatus)
 
   const users = useUsersStore((s) => s.users)
@@ -103,12 +108,14 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
 
   useEffect(() => {
     loadOrders()
+    if (role !== ROLES.ADMIN) return
+
     loadNews()
     loadProducts()
     loadTables()
     loadUsers()
     loadQrLinks().catch(() => {})
-  }, [loadOrders, loadNews, loadProducts, loadTables, loadUsers, loadQrLinks])
+  }, [role, loadOrders, loadNews, loadProducts, loadTables, loadUsers, loadQrLinks])
 
   const sortedTables = tables
     .slice()
@@ -234,6 +241,8 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
     activeTab,
     orders,
     stats,
+    revenueRange,
+    setRevenueRange,
     setOrderStatus,
     users,
     loadUsers,
@@ -267,26 +276,30 @@ export function AdminDashboard({ sidebarOpen, setSidebarOpen }) {
 
   return (
     <>
-      <div className="admin-dashboard-container">
-        <div className="admin-page-header">
-          <div className="header-left">
-            <h2 className="page-title">Dashboard Quản Lý</h2>
-            <p className="welcome-text">Chào mừng trở lại, <strong>{customerName || 'Quản trị viên'}</strong></p>
+      <div className="mx-auto max-w-[1400px] px-6 py-6 max-[640px]:px-4">
+        <div className="mb-8 flex items-center justify-between gap-4 rounded-3xl border border-slate-100 bg-white p-6 shadow-sm max-[760px]:flex-col max-[760px]:items-start">
+          <div>
+            <h2 className="m-0 text-3xl font-extrabold text-slate-950">Dashboard Qu?n l�</h2>
+            <p className="mt-2 text-slate-500">
+              Ch�o m?ng tr? l?i, <strong className="text-indigo-600">{customerName || 'Qu?n tr? vi�n'}</strong>
+            </p>
           </div>
-          <div className="header-actions">
-            <button
+          <div className="flex flex-wrap gap-3">
+            <Button
+              variant="destructive"
+              className="h-10 rounded-2xl border-red-100 bg-red-50 px-4 font-bold text-red-600 hover:bg-red-100"
               onClick={() => {
-                if (confirm('⚠️ XÓA TOÀN BỘ DỮ LIỆU GIẢ?\n\nHành động này không thể hoàn tác!')) {
+                if (confirm('X�A TO�N B? D? LI?U GI??\n\nH�nh d?ng n�y kh�ng th? ho�n t�c!')) {
                   const keys = ['orders', 'products', 'news', 'customers', 'accounts', 'activities', 'cart']
                   keys.forEach((key) => localStorage.removeItem(key))
-                  alert('✅ Đã xóa tất cả dữ liệu giả!')
+                  alert('�� x�a t?t c? d? li?u gi?!')
                   window.location.reload()
                 }
               }}
-              className="btn-delete-test"
             >
-              🗑️ Xóa dữ liệu test
-            </button>
+              <Trash2 className="size-4" />
+              X�a d? li?u test
+            </Button>
           </div>
         </div>
         <Outlet context={outletContext} />

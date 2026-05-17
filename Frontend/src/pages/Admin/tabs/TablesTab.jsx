@@ -1,5 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { buildQrImageUrl } from '../../../utils/tableSession.js'
+import { Pagination } from '../../../components/common/Pagination.jsx'
 
 const TABLE_STATUSES = [
   { value: 'available', label: 'Trong' },
@@ -7,6 +8,102 @@ const TABLE_STATUSES = [
   { value: 'reserved', label: 'Da dat' },
   { value: 'inactive', label: 'Tam khoa' },
 ]
+
+const escapeHtml = (value) => String(value)
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#039;')
+
+const openQrPreview = ({ tableNumber, qrUrl, menuUrl }) => {
+  const safeTableNumber = escapeHtml(tableNumber)
+  const safeQrUrl = escapeHtml(qrUrl)
+  const safeMenuUrl = escapeHtml(menuUrl)
+  const html = `<!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>QR Ban ${safeTableNumber}</title>
+        <style>
+          * { box-sizing: border-box; }
+          body {
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 24px;
+            background: #f8fafc;
+            color: #1e293b;
+          }
+          .card {
+            width: min(350px, 100%);
+            background: white;
+            padding: 32px;
+            border-radius: 24px;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+            text-align: center;
+          }
+          h2 { margin: 0 0 10px; font-size: 28px; }
+          p { color: #64748b; font-size: 14px; margin: 0 0 18px; }
+          img {
+            width: 250px;
+            height: 250px;
+            max-width: 100%;
+            margin: 8px 0 18px;
+            border: 1px solid #f1f5f9;
+            padding: 10px;
+            border-radius: 12px;
+            background: white;
+          }
+          .url {
+            font-size: 10px;
+            color: #94a3b8;
+            margin-bottom: 20px;
+            word-break: break-all;
+          }
+          button {
+            padding: 12px 24px;
+            background: #6366f1;
+            color: white;
+            border: 0;
+            border-radius: 12px;
+            font-weight: 700;
+            cursor: pointer;
+          }
+          @media print {
+            body { background: white; padding: 0; }
+            .card { box-shadow: none; }
+            button { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <h2>Ban ${safeTableNumber}</h2>
+          <p>Quet de xem thuc don va goi mon</p>
+          <img src="${safeQrUrl}" alt="QR Ban ${safeTableNumber}" />
+          <div class="url">${safeMenuUrl}</div>
+          <button onclick="window.print()">IN MA QR NAY</button>
+        </div>
+      </body>
+    </html>`
+
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const popup = window.open(url, '_blank', 'width=450,height=600')
+
+  if (!popup) {
+    URL.revokeObjectURL(url)
+    return
+  }
+
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
+}
 
 export function TablesTab({
   sortedTables,
@@ -29,6 +126,19 @@ export function TablesTab({
   const [editingId, setEditingId] = useState(null)
   const [editingNumber, setEditingNumber] = useState('')
   const [savingTableId, setSavingTableId] = useState(null)
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [sortedTables]);
+
+  const totalPages = Math.ceil(sortedTables.length / itemsPerPage);
+  const currentTables = sortedTables.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   const nextTableNumber = sortedTables.reduce(
     (max, table) => Math.max(max, Number(table.table_number) || 0),
@@ -221,7 +331,7 @@ export function TablesTab({
                   </td>
                 </tr>
               ) : (
-                sortedTables.map((table) => {
+                currentTables.map((table) => {
                   const activeOrders = activeOrdersByTable[table.id] || []
                   const signedQr = qrLinksByTableNumber?.[table.table_number]
                   const menuUrl = signedQr?.menu_url || '#'
@@ -305,36 +415,11 @@ export function TablesTab({
                                 background: 'white'
                               }}
                               onClick={() => {
-                                const popup = window.open('', '_blank', 'width=450,height=600')
-                                if (!popup) return
-                                popup.document.write(`
-                                  <html>
-                                    <head>
-                                      <meta charset="utf-8" />
-                                      <title>QR Ban ${table.table_number}</title>
-                                      <style>
-                                        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f8fafc; }
-                                        .card { background: white; padding: 40px; border-radius: 24px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); text-align: center; max-width: 350px; }
-                                        h2 { margin: 0 0 10px; color: #1e293b; }
-                                        img { width: 250px; height: 250px; margin: 20px 0; border: 1px solid #f1f5f9; padding: 10px; border-radius: 12px; }
-                                        p { color: #64748b; font-size: 14px; margin-bottom: 24px; }
-                                        button { padding: 12px 24px; background: #6366f1; color: white; border: none; border-radius: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-                                        button:hover { background: #4f46e5; transform: translateY(-1px); }
-                                        @media print { button { display: none; } body { background: white; } .card { box-shadow: none; } }
-                                      </style>
-                                    </head>
-                                    <body>
-                                      <div class="card">
-                                        <h2>Ban ${table.table_number}</h2>
-                                        <p>Quet de xem thuc don va goi mon</p>
-                                        <img src="${qrUrl}" />
-                                        <div style="font-size: 10px; color: #cbd5e1; margin-bottom: 20px; word-break: break-all;">${menuUrl}</div>
-                                        <button onclick="window.print()">IN MA QR NAY</button>
-                                      </div>
-                                    </body>
-                                  </html>
-                                `)
-                                popup.document.close()
+                                openQrPreview({
+                                  tableNumber: table.table_number,
+                                  qrUrl,
+                                  menuUrl,
+                                })
                               }}
                             />
                           ) : (
@@ -422,6 +507,14 @@ export function TablesTab({
               )}
             </tbody>
           </table>
+          
+          {totalPages > 1 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
+          )}
         </>
       )}
     </div>

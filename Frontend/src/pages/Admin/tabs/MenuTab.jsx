@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { Pagination } from '../../../components/common/Pagination.jsx'
 
 export function MenuTab({ prodList, addProduct, updateProduct, removeProduct }) {
   const CATEGORIES = [
@@ -11,6 +12,19 @@ export function MenuTab({ prodList, addProduct, updateProduct, removeProduct }) 
 
   const [editingId, setEditingId] = useState(null)
   const [previewImg, setPreviewImg] = useState('')
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [prodList]);
+
+  const totalPages = Math.ceil(prodList.length / itemsPerPage);
+  const currentProducts = prodList.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   return (
     <div className="dashboard-section">
@@ -32,9 +46,10 @@ export function MenuTab({ prodList, addProduct, updateProduct, removeProduct }) 
               r.readAsDataURL(imgFile)
             })
           }
+          const description = f.description.value.trim()
           const isAvailable = f.isAvailable.value === 'true'
           if (!name || !category) return
-          addProduct({ name, price, category, image, is_available: isAvailable })
+          addProduct({ name, price, category, image, description, is_available: isAvailable })
           f.reset()
           setPreviewImg('')
         }}
@@ -101,6 +116,13 @@ export function MenuTab({ prodList, addProduct, updateProduct, removeProduct }) 
             <span className="muted">Xem trước ảnh</span>
           </div>
         )}
+        <textarea
+          name="description"
+          placeholder="Mô tả sản phẩm (hiển thị trong trang chi tiết)"
+          className="newsletter-input"
+          rows={3}
+          style={{ resize: 'vertical', minHeight: '60px' }}
+        />
         <select name="isAvailable" className="newsletter-input">
           <option value="true">Còn hàng (Sẵn sàng bán)</option>
           <option value="false">Hết hàng (Tạm ngưng)</option>
@@ -114,12 +136,13 @@ export function MenuTab({ prodList, addProduct, updateProduct, removeProduct }) 
             <th>Tên</th>
             <th>Giá</th>
             <th>Loại</th>
+            <th>Mô tả</th>
             <th>Trạng thái</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
-          {prodList.map((p) => (
+          {currentProducts.map((p) => (
             <tr key={p.id}>
               <td>
                 <div style={{ position: 'relative', width: 48, height: 48 }}>
@@ -214,6 +237,35 @@ export function MenuTab({ prodList, addProduct, updateProduct, removeProduct }) 
               </td>
               <td>
                 {editingId === p.id ? (
+                  <textarea
+                    defaultValue={p.description || ''}
+                    onBlur={(e) =>
+                      updateProduct(p.id, { description: e.target.value.trim() })
+                    }
+                    className="newsletter-input"
+                    rows={2}
+                    style={{ resize: 'vertical', minWidth: '160px', minHeight: '48px' }}
+                    placeholder="Nhập mô tả..."
+                  />
+                ) : (
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      maxWidth: '200px',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      color: p.description ? '#334155' : '#94a3b8',
+                      fontSize: '13px',
+                    }}
+                    title={p.description || 'Chưa có mô tả'}
+                  >
+                    {p.description || '—'}
+                  </span>
+                )}
+              </td>
+              <td>
+                {editingId === p.id ? (
                   <select
                     defaultValue={p.is_available ? 'true' : 'false'}
                     onChange={(e) =>
@@ -277,6 +329,14 @@ export function MenuTab({ prodList, addProduct, updateProduct, removeProduct }) 
           ))}
         </tbody>
       </table>
+
+      {totalPages > 1 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+        />
+      )}
     </div>
   )
 }
